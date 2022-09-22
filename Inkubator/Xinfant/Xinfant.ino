@@ -475,13 +475,16 @@ void run_warmer(){
 /*cek sensor condition*/
 
 void read_error(){
-    lastError0 = error0;
-    lastError1 = error1;
-    lastError2 = error2;
+lastError0 = error0; // probe missing
+    lastError1 = error1; // deviation air
+    lastError2 = error2; // deviation skin
     lastError3 = error3;
     lastError4 = error4;
     lastError5 = error5;
     lastError6 = error6;
+    float errorAir = (setTemp * 10) - (chamberTemp0 * 10);
+    float errorSkin0 = (setTemp * 10) - (babySkinTemp0 * 10);
+    float errorSkin1 = (setTemp * 10) - (babySkinTemp1 * 10);
 
     /*probe sensor missing*///////////////////////
     read_temperature();
@@ -496,98 +499,67 @@ void read_error(){
 
 
     /*Temp Deviation Alarm*////////////////////////
-    float errorAir = (setTemp * 10) - (chamberTemp0);
-    float errorSkin0 = (setTemp * 10) - (babySkinTemp0);
-    float errorSkin1 = (setTemp * 10) - (babySkinTemp1);
-    if(skinMode == 2){
-        if(errorAir < -29 || errorAir > 29){
-            deviationAir = 1;
-        }
-        if(errorAir > -29 && errorAir < 29){
-            deviationAir = 0;
-        }
-        if(deviationAir == 1){
-            error1 = 1;
-        }else{
-            error1 = 0;
-        }
+    if(skinMode == 1){
+        // error1 = 0;
+        if(errorSkin0 < 2.5 && errorSkin0 >= -2.5 || errorSkin1 < 2.5 && errorSkin1 >= -2.5 ){
+            // risetime = 2;
+            // deviationSkin0 = 0;
+            // deviationSkin1 = 0;
+            // if(risetime == 2 && babySkinTemp0 >= setTemp + 1 || babySkinTemp0 <= setTemp +1 || babySkinTemp1 <= setTemp+1 || babySkinTemp1 >= setTemp+1){
+            //     deviationSkin0 = 1;
+            // }
+            // // if(errorSkin0 > -9 && errorSkin0 < 9 && risetime == 2){
+            // //     deviationSkin0 = 0;
+            // // }
+            // // if(errorSkin1 < -9 || errorSkin1 > 9 && risetime == 2){
+            //     // deviationSkin1 = 1;
+            // // }
+            // // if(errorSkin1 > -9 && errorSkin1 < 9 && risetime == 2){
+            //     // deviationSkin1 = 0;
+            // // }
+            // if(deviationSkin0 == 1 || deviationSkin1 == 1){
+            //     error2 = 1;
+            //     risetime = 0;
+            // }if(deviationSkin0 == 0 || deviationSkin1 == 0){
+            //     error2 = 0;
+            // }   
+        } 
     }
-    if(skinMode ==1){
-        if(errorSkin0 < -9 || errorSkin0 > 9){
-            deviationSkin0 = 1;
-        }
-        if(errorSkin0 > -9 && errorSkin0 < 9){
-            deviationSkin0 = 0;
-        }
-        if(errorSkin1 < -9 || errorSkin1 > 9){
-            deviationSkin1 = 1;
-        }
-        if(errorSkin1 > -9 && errorSkin1 < 9){
-            deviationSkin1 = 0;
-        }
-        if(deviationSkin0 == 1 || deviationSkin1 == 1){
-            error2 = 1;
-        }else{
-            error2 = 0;
-        }
+    //// BAY DIDIEU WKWK //////////
+    if(errorAir < 3 && errorAir >= -3){
+        // error2 = 0;
+        risetime++;
+        deviationAir = 0;
+    }   
+    if(risetime >= 10000 && chamberTemp0 >= setTemp+3 || chamberTemp0 <= setTemp+3){
+        deviationAir = 1;
+        risetime = 10000;
+    }
+    if(deviationAir == 1){
+        // error2 = 1;
+        risetime = 0;
+    }
+    if(deviationAir == 0){
+        // error2 = 0;
     }
    /*End Temp Deviation Alarm*////////////////////////
     
    /*High Temperature Alarm*//////////////////////////
-    if(highTemp == 1 && chamberTemp0 >= 38 || babySkinTemp0 >= 40 || babySkinTemp1 >= 40){
-        error7 = 1;
+    if(highTemp == 0 && chamberTemp0 >= 38 || babySkinTemp0 >= 38 || babySkinTemp1 >= 38){
+        error3 = 1;
     }else{
-        error7 = 0;
+        error3 = 0;
     }
-    if(highTemp == 1 && chamberTemp0 >= 38 || babySkinTemp0 >= 38 || babySkinTemp1 >= 38){
+    if(highTemp == 1 && chamberTemp0 >= 39.5 || babySkinTemp0 >= 38 || babySkinTemp1 >= 38){
         sunyiValue = 1;
-        error8 = 1;
+        error4 = 1;
     }else{
         sunyiValue = 2;
-        error8 = 0;
-    }
-    
-
-    /*baby cold && hot*/
-    if(skinMode == 1){
         error4 = 0;
-        error6 = 0;
-        if(error0 != 1 || error1 != 1){
-            //hot
-            if(babySkinTemp0 >= setTemp+1){
-                error3 = 1;
-            }
-            if(babySkinTemp0 <= setTemp+1){
-                error3 = 0;
-            }
-            //cold
-            if(babySkinTemp0 <= setTemp-1){
-                error5 = 1;
-            }
-            if(babySkinTemp0 >= setTemp-1){
-                error5 = 0;
-            }
-        }
     }
-    if(skinMode == 2){
-        error3 = 0;
-        error5 = 0;
-        //hot
-        if(chamberTemp0 >= setTemp+1.5){
-            error4 = 1;
-        }
-        if(chamberTemp0 <= setTemp+1.5){
-            error4 = 0;
-        }
-        //cold
-        if(chamberTemp0 <= setTemp-3){
-            error6 = 1;
-        }
-        if(chamberTemp0 >= setTemp-3){
-            error6 = 0;
-        }
-    }
-    /*end baby cold && hot*/
+    /*end High Temperature Alarm*/////////////////////////
+    
+   
 
     if(error0 != lastError0){
         if(error0 != 0)
@@ -631,6 +603,8 @@ void read_error(){
         if(error6 == 0 && last_sunyi_value == 2)
             sunyiValue = 2;
     }
+
+}
 
     /*high temp*/
 
