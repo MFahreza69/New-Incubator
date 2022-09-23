@@ -254,10 +254,10 @@ int Xbaby::get_value_heater(float set_temp,int mode, int high, float temp_chambe
                     return 90;
                 }
                 if(err_baby0 < 5.5 && err_baby0 >= 1.5){
-                    return 72;
+                    return 82;
                 }
                 if(err_baby0 < 1.5 && err_baby0 >= -0.5){
-                    return 64;
+                    return 72;
                 }
             }
             if(temp_baby0 == 0 && temp_baby1 != 0){
@@ -283,10 +283,10 @@ int Xbaby::get_value_heater(float set_temp,int mode, int high, float temp_chambe
                     return 90;
                 }
                 if(err_baby1 < 5.5 && err_baby1 >= 1.5){
-                    return 72;
+                    return 80;
                 }
                 if(err_baby1 < 1.5 && err_baby1 >= -0.5){
-                    return 64;
+                    return 72;
                 }
             }
         }    
@@ -318,10 +318,10 @@ int Xbaby::get_value_heater(float set_temp,int mode, int high, float temp_chambe
                     return 95;
                 }
                 if(err_chamber < 5.5 && err_chamber >= 1.5){
-                    return 52;
+                    return 72;
                 }
                 if(err_chamber < 1.5 && err_chamber >= -0.5){
-                    return 32;
+                    return 52;
                 }
         }
     }
@@ -329,7 +329,7 @@ int Xbaby::get_value_heater(float set_temp,int mode, int high, float temp_chambe
         if(temp_chamber < 0){
             return 0;
         }else{
-                if(err_chamber < -0.5 && err_chamber > -99){
+                if(err_chamber < -0.4 && err_chamber > -99){
                     return 0;
                 }
                 if(err_chamber < 150 && err_chamber >= 70.5){
@@ -345,16 +345,16 @@ int Xbaby::get_value_heater(float set_temp,int mode, int high, float temp_chambe
                     return 180;
                 }            
                 if(err_chamber < 20.5 && err_chamber >= 10.5){
-                    return 150;
+                    return 170;
                 }
                 if(err_chamber < 10.5 && err_chamber >= 5.5){
-                    return 120;
+                    return 150;
                 }
                 if(err_chamber < 5.5 && err_chamber >= 1.5){
-                    return 90;
+                    return 120;
                 }
-                if(err_chamber < 1.5 && err_chamber >= -0.5){
-                    return 62;
+                if(err_chamber < 1.5 && err_chamber >= -0.4){
+                    return 100;
                 }
         }
     }
