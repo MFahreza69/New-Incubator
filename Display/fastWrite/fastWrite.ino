@@ -2,53 +2,53 @@
 #include "src/library/SimpleTimer/SimpleTimer.h"
 #include "LedControl.h"
 
-/*define*/
-#define leftAir            22 //1
-#define rightAir           23 //2
-#define setAir             24 //3
-#define leftHumi           25 //4
-#define rightHumi          26 //5
-#define setHumi            27 //6
-#define leftSkin           28 //7
-#define rightSkin          29 //8
-#define setSkin            30 //9
-#define setTimer           32 //10
-#define bypassPin          47 //11... asalnya 31
-#define set_alarm          32 //12
-#define led_airway         33 //13
-#define led_skin           34 //14
-#define led_humi           35 //15
-#define led_bypass         48//16
-#define led_alarm          49//17
-#define err0               13//18
-#define err1               12//19
-#define err2               11//20
-#define err3               10//21
-#define err4               9//22
-#define err5               4//23
-#define err6               56//24
-#define err7               57//25
-#define lock_btn           46 //26
-#define led_lock           31 //27
-#define alarmResetpin      48 //28
-#define sunyiBtn            8
+/*define*/                    /*PCB allisha*/ //all led pins are active low
+#define leftAir            22   //47
+#define rightAir           23   //46
+#define setAir             24   //45
+#define leftHumi           25   //11
+#define rightHumi          26   //12
+#define setHumi            27   //13
+#define leftSkin           28   //3
+#define rightSkin          29   //4
+#define setSkin            30   //5
+#define setTimer            4   //25
+#define bypassPin          47   //6
+#define set_alarm          32   //2
+#define led_airway         33   //50
+#define led_skin           34   //49
+#define led_humi           35   //47
+#define led_bypass         48   //7
+#define err0               13   //32 //probe fail
+#define err1               12   //29 //temp deviation
+#define err2               11   //30 //over temp
+#define err3               10   //31 //power failure
+#define err4               9    //28 //fan failure
+#define err7               57   //
+#define lock_btn           46   //10
+#define led_lock           31   //8
+#define sunyiBtn            8   //24
+
 
 /*seven segment display define*/
-//Pin 7 = DIN
-//PIN 6 = ClK
-//Pin 5 = CS/LOAD
+//Pin 7 = DIN                 //34
+//PIN 6 = ClK                 //35
+//Pin 5 = CS/LOAD             //33
 //LedControl (DIN, CLK, CS/Load, Number of IC used)
 LedControl lc = LedControl(7, 6, 5 ,3); //32
-// 6 pin for 24 Seven segment
 int graphpin[] = {36, 37, 38, 39, 40, 41, 42, 43, 44, 45};
-
+//graphpin pcb allisha {37, 38, 39, 40, 41, 42, 43, 44, 52, 51}
 /*End Define*//////////////////////////////////////////////
 
 //display setpoint
 float displaysetTemp = 27.0;
 float displaysetSkin = 34.0;
 float displaysetHumi = 60;
-float displaysetTimer = 0;
+
+uint8_t displaysetTimer1 = 0;
+uint8_t displaysetTimer2 = 0;
+uint8_t Datatimer1;
+uint8_t Datatimer2;
 
 //data from sensor
 float chamberTemp0 = 0;
@@ -66,14 +66,17 @@ float displaySkin2 = 0;
 float sendTemp = 0;
 float sendHumi = 0;
 float sendSkin = 0;
+float sendTime = 0;
+uint8_t silent = 0;
 
 //data Mode sended to incubator
 int skinMode = 0;
 int highTemp = 0;
 int humiMode = 0;
 int lockMode = 0;
-int sunyiValue = 1;
-int last_sunyi_value;
+int sunyiValue = 0;
+int last_sunyi_value = 0;
+uint8_t timeMode = 0;
 
 //data error received from incubator
 int error0 = 0;
@@ -102,8 +105,15 @@ int i = 0;
 float j;
 uint8_t k = 0;
 uint8_t l = 0;
+uint8_t o;
 int debugging = 1;
 uint8_t segmentBlank = 0;
+
+uint8_t sirenAlarm =0;
+uint16_t alarmValue  = 0;
+uint8_t alarmValue2 = 0;
+unsigned long dpTimer;
+uint8_t loopTimer;
 
 
 //data button
@@ -120,6 +130,7 @@ uint8_t lastPower9;   //tombol hightemp
 uint8_t lastPower10;  //Lock
 uint8_t lastPower11;  //Alarm
 uint8_t lastPower12;  //Sunyi Btn
+uint8_t lastPower13;  //set Timer
 
 uint8_t currentPower0;   //read tombol kiri airtemp   
 uint8_t currentPower1;   //read tombol kanan airtemp   
@@ -134,7 +145,16 @@ uint8_t currentPower9;   //read hightemp
 uint8_t currentPower10;  //Lock
 uint8_t currentPower11;  //Alarm
 uint8_t currentPower12;  //Sunyi Btn
+uint8_t currentPower13;  //set timer
 uint8_t onOff;
+
+uint8_t lastError0          = 0;
+uint8_t lastError1          = 0;
+uint8_t lastError2          = 0;
+uint8_t lastError3          = 0;
+uint8_t lastError4          = 0;
+uint8_t lastError5          = 0;
+uint8_t lastError6          = 0;
 
 uint8_t setHigh = 0;
 uint8_t setAirway = 0;
@@ -142,6 +162,11 @@ uint8_t setSkinMode = 0;
 uint8_t setHumiMode = 0;
 uint8_t setLockMode = 0;
 uint8_t setAlarmMode = 0;
+uint8_t setTimerMode = 0;
+uint8_t holdTimer1;
+uint8_t holdTimer2;
+unsigned long holdtime;
+uint8_t holdData = 0;
 
 //initialize digit
 int digit1 = 0;
@@ -171,14 +196,18 @@ int digit24 = 0;
 int digit25 = 0;
 uint8_t heaterPwm = 0;
 uint8_t heatedPower = 0;
+uint8_t alarm[6] = {0,0,0,0,0,0};
+uint8_t sAlarm[6] = {1,1,1,1,1,1};
 
 SimpleTimer timer0;
 SimpleTimer timer1;
+SimpleTimer timer3;
 
 void setup() {
   Serial1.begin(9600);
   Serial.begin(9600);
-  timer0.setInterval(1000, generate_json);
+  timer0.setInterval(500, generate_json);
+  // timer3.setInterval(1000,read_error);
   lc.setIntensity(0, 2);
   lc.setIntensity(1, 2);
   lc.setIntensity(2, 2);
@@ -206,11 +235,12 @@ void setup() {
   pinMode(led_skin, OUTPUT);
   pinMode(led_humi, OUTPUT);
   pinMode(led_bypass, OUTPUT);
-  pinMode(led_alarm, OUTPUT);
   pinMode(led_lock, OUTPUT);
   pinMode(err0, OUTPUT);
   pinMode(err1, OUTPUT);
   pinMode(err2, OUTPUT);
+  pinMode(err3, OUTPUT);
+  pinMode(err4, OUTPUT);
 
   /*led graph pin setup*/
   for(int thisled = 0; thisled < 10; thisled++){
@@ -222,18 +252,38 @@ void loop() {
    run_program();
 }
 
-void run_program(){
-  getData();
-  if(onOff == 1){
+void run_program(){ 
+    getData();
     timer0.run();//generate_json();
     btn_menu();
     set_btn();
     display_digit();
     read_error();
-  }
-  if(onOff == 0){
+  if(digitalRead(19) == LOW){
+    onOff++;
+    if(onOff >= 5){
     digit_kosong();
-  } 
+    error0 = 0;
+    error1 = 0;
+    error2 = 0;
+    error3 = 0;
+    error4 = 0;
+    error5 = 0;
+    error6 = 0;
+    skinMode = 0;
+    humiMode = 0;
+    lockMode = 0;
+    sunyiValue = 2;
+    highTemp = 0;
+      if(onOff > 5){
+        onOff = 0;
+      }
+    }
+  }
+  if(digitalRead(19) == HIGH){
+    onOff = 0;
+  }
+  
 }
 
 /* Send and Receive Data Session*///// 
@@ -241,60 +291,53 @@ void generate_json(){
     StaticJsonDocument<255> out1;
     JsonObject DataButton = out1.createNestedObject("data1");
     DataButton["sn"][0] = sendTemp;
-    DataButton["sn"][1] = sendSkin;
+    // DataButton["sn"][1] = sendSkin;
     DataButton["sn"][1] = sendHumi;
     DataButton["mode"][0] = skinMode;
     DataButton["mode"][1] = humiMode;
     DataButton["mode"][2] = highTemp;
-    DataButton["mode"][3] = lockMode;
-    DataButton["mode"][4] = sunyiValue;
+    DataButton["mode"][3] = alarmValue2;
+    DataButton["mode"][4] = sirenAlarm;
+    DataButton["mode"][5] = timeMode;
+    // DataButton["mode"][5] = alarmValue2;
     serializeJson(out1, Serial1);
     Serial1.println();
-//     serializeJson(out1, Serial);
-//     Serial.println();    
+    // serializeJson(out1, Serial);
+    // Serial.print(digit20);
+    // Serial.print(digit21);
+    // Serial.print(digit22);
+    // Serial.print(digit23);    
+    // Serial.println(setTimerMode);    
 }
 
 void getData(){
   while(Serial1.available()>0){
+    lc.shutdown(0, false);
+    lc.shutdown(1, false);
+    lc.shutdown(2, false);
     inputData[x] = Serial1.read();
     x++;
     if(inputData[x-1] == '\n'){
       Serial.println(inputData);
-      // Serial.println(chamberTemp0);
       StaticJsonDocument<512>in;
       DeserializationError error = deserializeJson(in, inputData);
       x = 0;
-      
       if(!error){
        chamberTemp0 = in["suhu"][0];
        skinTemp1 =    in["suhu"][1];
        skinTemp2 =    in["suhu"][2];
        humidityMid =  in["suhu"][3];
-       onOff =        in["btn"][0];
        heaterPwm =    in["pow"][0];
+       Datatimer1 = in["tim"][0];
+       Datatimer2 = in["tim"][1];
        error0 = in["err"][0];
        error1 = in["err"][1];
        error2 = in["err"][2];
        error3 = in["err"][3];
        error4 = in["err"][4];
-      //  error5 = in["err"][5];
-      //  error6 = in["err"][6];
-      //  error7 = in["err"][7];
+       error5 = in["err"][5];
        return;
-      }
-      // x = 0;
- //      chamberTemp0 = 0;
- //      humidityMid =0;
- //      skinTemp1 = 0;
- //      skinTemp2 = 0;
- //      error0 = 0;
- //      error1 = 0;
- //      error2 = 0;
- //      error3 = 0;
- //      error4 = 0;
- //      error5 = 0;
- //      error6 = 0;
- //      error7 = 0;      
+      }   
     }
   }
 }
@@ -537,8 +580,8 @@ void set_btn(){
           humiMode = 0;
           digitalWrite(led_humi, LOW);
        }
-    }
- }
+     }
+   }
 
 
 
@@ -548,28 +591,55 @@ void set_btn(){
     if(lastPower11 == HIGH && currentPower11 == LOW){
        setAlarmMode = setAlarmMode + 1;
        if(setAlarmMode == 1){       
-          digitalWrite(led_alarm, HIGH);
+
        }
 
        if(setAlarmMode == 2){       
           setAlarmMode = 0;
-          digitalWrite(led_alarm, LOW);
+
           if(setAlarmMode > 1){
              setAlarmMode = 0;
           }
        } 
    }
 
-  
     /* sunyi button */
     lastPower12 = currentPower12;
     currentPower12 = digitalRead(sunyiBtn);
-    if(lastPower12 == HIGH && currentPower12 == LOW){
-       sunyiValue++;
-       if(sunyiValue > 2){
-          sunyiValue = 1;
+      if(lastPower12 == HIGH && currentPower12 == LOW){
+         if(millis() - h > 350 && i == 0){
+            sunyiValue = 1;
+            i = 1;
+            h = millis();
+         }
+        }
+         if(millis() - h > 350 && i == 1){
+            sunyiValue = 0;
+            i = 0;
+            h = millis();
+         }
+        
+    /*set Timer BTN*/
+    lastPower13 = currentPower13;
+    currentPower13 = digitalRead(setTimer);
+    if(lastPower13 == HIGH && currentPower13 == LOW){
+       setTimerMode++;
+       if(setTimerMode == 1){
+         timeMode = 1;
        }
-       last_sunyi_value = sunyiValue;
+       if(setTimerMode == 2){
+         timeMode = 2;
+         holdTimer1 = displaysetTimer1;
+         holdTimer2 = displaysetTimer2;
+         setTimerMode = 3;
+       }
+       if(setTimerMode == 3){
+         timeMode = 3;
+       }
+       if(setTimerMode == 4){
+        setTimerMode = 0;
+        timeMode = 0;
+       }
     }
    
       /*LED Blinking while setpoint changed*/
@@ -613,17 +683,17 @@ void set_btn(){
         }
 }
  
-    
- 
-
-
+  
 void read_error(){
+  /*Triggering lamp*/
   /*probe missing*/
-  if(error0 == 1){
+  if(error0 == 1 ){
     digitalWrite(err0, LOW);
   }
+
   if(error0 == 0){
     digitalWrite(err0, HIGH);
+    sAlarm[0] = 1;
   }
 
   /*temp deviation*/
@@ -632,6 +702,8 @@ void read_error(){
   }
   if(error1 == 0 && error2 == 0){
     digitalWrite(err1, HIGH);
+    sAlarm[1] = 1;
+    sAlarm[2] = 1;
   }
 
   /*high temp alarm*/
@@ -640,47 +712,117 @@ void read_error(){
   }
   if(error3 == 0 && error4 == 0){
     digitalWrite(err2, HIGH);
+    sAlarm[3] = 1;
+    sAlarm[4] = 1;
   }
+
   /*Power Failure*/
+  if(error5 == 1){
+    digitalWrite(err3, LOW);
+  }
+  if(error5 == 0){
+    digitalWrite(err3, HIGH);
+    sAlarm[5] = 1;
+  }
+
+  /*end Triggering lamp*/
+
+
+/*Silent Alarm Function*/
+  //cek kondisi alarm
+  if(error0 == 1 && sAlarm[0] == 1){
+    alarm[0] = 1;
+  }
+  if(error1 == 1 && sAlarm[1] == 1 ){
+    alarm[1] = 1;
+  }
+  if(error2 == 1 && sAlarm[2] == 1){
+    alarm[2] = 1;
+  }
+  if(error3 == 1 && sAlarm[3] == 1){
+    alarm[3] = 1;
+  }
+  if(error4 == 1 && sAlarm[4] == 1){
+    alarm[4] = 1;
+  }
+  if(error5 == 1 && sAlarm[5] == 1){
+    alarm[5] = 1;
+  }
+
+//trigger button
+  if(alarm[0] == 1 && sunyiValue == 1){
+    sAlarm[0] = 0;
+    alarm[0] = 0;
+  }
+  if(alarm[1] == 1 && sunyiValue == 1){
+    sAlarm[1] = 0;
+    alarm[1] = 0;
+  }  
+  if(alarm[2] == 1 && sunyiValue == 1){
+    sAlarm[2] = 0;
+    alarm[2] = 0;
+  }
+  if(alarm[3] == 1 && sunyiValue == 1){
+    sAlarm[3] = 0;
+    alarm[3] = 0;
+  }  
+  if(alarm[4] == 1 && sunyiValue == 1){
+    sAlarm[4] = 0;
+    alarm[4] = 0;
+  }
+  if(alarm[5] == 1 && sunyiValue == 1){
+    sAlarm[5] = 0;
+    alarm[5] = 0;
+  }
+// check error again after button triggering
+  for(o=0; o<6; o++){
+    if(alarm[o] == 1){
+      sirenAlarm = 1;
+      alarmValue++;
+      if(alarmValue >= 500){
+        alarmValue = 500;
+        alarmValue2 = 1;
+      }
+    }
+    if(sunyiValue == 1){
+      sirenAlarm = 0;
+      alarmValue = 0;
+      alarmValue2 = 0;
+    }
+    if(error0 == 0 && error1 == 0 && error2 ==0 && error3 == 0 && error4 == 0 && error5 == 0){
+      alarmValue = 0;
+      alarmValue2 = 0;
+      sirenAlarm = 0;    
+    }
+  }
+
 
   /*fan Failure*/
 }
 
 void display_digit(){
-  lc.shutdown(0, false);
-  lc.shutdown(1, false);
-  lc.shutdown(2, false);
   nilaidigit();
-
-   /*Display Airway Temp*/
-  lc.setDigit(2, 0, digit4, false);
-  lc.setDigit(2, 1, digit5, true);
-  lc.setDigit(2, 2, digit6, false);
-
-  // lc.setDigit(2, 3, digit1, false);
-  // lc.setDigit(2, 4, digit2, true);
-  // lc.setDigit(2, 5, digit3, false);
-
-  // /*Display Skin Temp*/
-  //  lc.setDigit(1, 7, digit7, false);
-  //  lc.setDigit(1, 6, digit8, true);
-  //  lc.setDigit(1, 1, digit9, false);
-
-  lc.setDigit(1, 3, digit10, false);
-  lc.setDigit(1, 4, digit11, true);
-  lc.setDigit(1, 5, digit12, false);
-   
+   /*Display Airway Temp*/            /*PCB Allisha*/
+  lc.setDigit(2, 0, digit4, false);     //(1,2)
+  lc.setDigit(2, 1, digit5, true);      //(1,1)
+  lc.setDigit(2, 2, digit6, false);     //(1,5)
+  
+  /*Display Skin Temp*/
+  lc.setDigit(1, 3, digit10, false);    //(1,0)
+  lc.setDigit(1, 4, digit11, true);     //(1,4)
+  lc.setDigit(1, 5, digit12, false);    //(1,6)
+  
+  // /*Display SKin 2 */
+  // lc.setDigit(0, 1, digit13, false);  //sdh di set  
+  // lc.setDigit(0, 5, digit14, true);     
+  // lc.setDigit(0, 7, digit15, false);    
+ 
    /*Display Humidity*/
-  lc.setDigit(0, 0, digit16, false);
-  lc.setDigit(0, 1, digit17, false);
-  lc.setDigit(0, 3, digit18, false);
-  lc.setDigit(0, 2, digit19, false);
-
-     /*Display Timer*/
-    // lc.setDigit(2, 4, digit20, false);
-    // lc.setDigit(2, 5, digit21, false);
-    // lc.setDigit(2, 6, digit22, false);
-    // lc.setDigit(2, 7, digit23, false);
+  lc.setDigit(0, 0, digit16, false);    //(1,3) 
+  lc.setDigit(0, 1, digit17, false);    //(1,7)
+  /*set Humidity*/ 
+  lc.setDigit(0, 3, digit18, false);    //(2,3)
+  lc.setDigit(0, 2, digit19, false);    //(2,2)
 
   /*Display Led Bar Graph*/
   heatedPower = map(heaterPwm, 0, 255, 0, 10);
@@ -693,34 +835,39 @@ void display_digit(){
       }
     }
 
+
+  /*Display Airway & Skin set Temp*/
   if(segmentBlank == 0){
-    lc.setDigit(2, 3, digit1, false);
-    lc.setDigit(2, 4, digit2, true);
-    lc.setDigit(2, 5, digit3, false);
-    lc.setDigit(1, 7, digit7, false);
-    lc.setDigit(1, 6, digit8, true);
-    lc.setDigit(1, 1, digit9, false);
+    /*Airway set*/                      /*PCB ALlisha*/
+    lc.setDigit(2, 3, digit1, false);     //(2,0)
+    lc.setDigit(2, 4, digit2, true);      //(2,4)
+    lc.setDigit(2, 5, digit3, false);     //(2,6)
+
+    /*Skin Set*/
+    lc.setDigit(1, 7, digit7, false);     //(2,7)
+    lc.setDigit(1, 6, digit8, true);      //(2,5)
+    lc.setDigit(1, 1, digit9, false);     //(2,1)
   }   
 
   if(segmentBlank == 1){
     /*not showing airtemp number when skinmode =1*/
-    lc.setChar(2, 3, '-', false);
-    lc.setChar(2, 4, '-', false);
-    lc.setChar(2, 5, '-', false);
-    lc.setDigit(1, 7, digit7, false);
-    lc.setDigit(1, 6, digit8, true);
-    lc.setDigit(1, 1, digit9, false);
+    lc.setChar(2, 3, '-', false);         //(2,0)
+    lc.setChar(2, 4, '-', false);         //(2,4)
+    lc.setChar(2, 5, '-', false);         //(2,6)
+    lc.setDigit(1, 7, digit7, false);     //(2,7)
+    lc.setDigit(1, 6, digit8, true);      //(2,5)
+    lc.setDigit(1, 1, digit9, false);     //(2,1)
     /*end*/
   }
 
   if(segmentBlank == 2){
     /*not showing skintemp number when skinmode =2*/ 
-    lc.setChar(1, 7, '-', false);
-    lc.setChar(1, 6, '-', false);
-    lc.setChar(1, 1, '-', false);
-    lc.setDigit(2, 3, digit1, false);
-    lc.setDigit(2, 4, digit2, true);
-    lc.setDigit(2, 5, digit3, false);
+    lc.setChar(1, 7, '-', false);         //(2,0)
+    lc.setChar(1, 6, '-', false);         //(2,4)
+    lc.setChar(1, 1, '-', false);         //(2,6)
+    lc.setDigit(2, 3, digit1, false);     //(2,7)
+    lc.setDigit(2, 4, digit2, true);      //(2,5)
+    lc.setDigit(2, 5, digit3, false);     //(2,1)
   }
 }
 
@@ -729,36 +876,45 @@ void digit_kosong(){
   lc.shutdown(1, true);
   lc.shutdown(2, true);
   nilaidigit();
-    /*Display Airway Temp*/
-  lc.setChar(2, 'blank', digit4, false);
-  lc.setChar(2, 'blank', digit5, true);
-  lc.setChar(2, 'blank', digit6, false);
 
-  lc.setChar(2, 'blank', digit1, false);
-  lc.setChar(2, 'blank', digit2, true);
-  lc.setChar(2, 'blank', digit3, false);
+    /*Display Airway Temp*/
+  lc.setChar(2, 0, 'blank', false);
+  lc.setChar(2, 1, 'blank', true);
+  lc.setChar(2, 2, 'blank', false);
+
+  lc.setChar(2, 3, 'blank', false);
+  lc.setChar(2, 4, 'blank', true);
+  lc.setChar(2, 5, 'blank', false);
 
   /*Display Skin Temp*/
-  lc.setChar(1, 'blank', digit7, false);
-  lc.setChar(1, 'blank', digit8, true);
-  lc.setChar(1, 'blank', digit9, false);
+  lc.setChar(1, 3, 'blank', false);
+  lc.setChar(1, 4, 'blank', true);
+  lc.setChar(1, 5, 'blank', false);
 
-  lc.setChar(1, 'blank', digit10, false);
-  lc.setChar(1, 'blank', digit11, true);
-  lc.setChar(1, 'blank', digit12, false);
+  lc.setChar(1, 1, 'blank', false);
+  lc.setChar(1, 7, 'blank', true);
+  lc.setChar(1, 6, 'blank', false);
    
    /*Display Humidity*/
-  lc.setChar(0, 'blank', digit16, false);
-  lc.setChar(0, 'blank', digit17, false);
-  lc.setChar(0, 'blank', digit18, false);
-  lc.setChar(0, 'blank', digit19, false);
+  lc.setChar(0, 0, 'blank', false);
+  lc.setChar(0, 1, 'blank', false);
+  lc.setChar(0, 2, 'blank', false);
+  lc.setChar(0, 3, 'blank', false);
+
+  /*Display Timer*/
+  // lc.setChar(0, 2, 'blank', false);      
+  // lc.setChar(0, 6, 'blank', false);    
+  // lc.setChar(0, 4, 'blank', false);  
+  // lc.setChar(0, 0, 'blank', false);  
 }
 
 void nilaidigit() {
-  float displayTemp = chamberTemp0;
-  float displaySkin = skinTemp1;
-  float displaySkin2 = skinTemp2;
-  float displayHumi = humidityMid;
+  displayTemp = chamberTemp0;
+  displaySkin = skinTemp1;
+  displaySkin2 = skinTemp2;
+  displayHumi = humidityMid;
+  displaysetTimer1 = Datatimer1;
+  displaysetTimer2 = Datatimer2;
 
   /*airway*/
   digit1 = displaysetTemp / 10;
@@ -785,10 +941,57 @@ void nilaidigit() {
   digit18 = displaysetHumi / 10;
   digit19 = displaysetHumi - (digit18 * 10);
 
-  /*timer*/
-  digit20 = displaysetTimer / 1000;
-  digit21 = ((displaysetTimer - (digit20 * 1000)) / 100);
-  digit22 = (((displaysetTimer - (digit20 * 1000)) - (digit21 * 100)) / 10);
-  digit23 = ((((displaysetTimer - (digit20 * 1000)) - digit21 * 100) - digit22 * 10));  
+  /*Timer*/
+  if(timeMode == 0){
+    digit20 = 0;
+    digit21 = 0;
+    digit22 = 0;                          /*PCB ALLISHA*/
+    digit23 = 0;    
+    // lc.setChar(0, 2, '-', false);        //(0,2) 
+    // lc.setChar(0, 6, '-', false);        //(0,6) 
+    // lc.setChar(0, 4, '-', false);        //(0,4)
+    // lc.setChar(0, 0, '-', false);        //(0,0)
+  }
+  if(timeMode == 1){
+    // lc.setDigit(0, 2, digit20, false);   //(0,2)
+    // lc.setDigit(0, 6, digit21, false);   //(0,6)
+    // lc.setDigit(0, 4, digit22, false);   //(0,4) 
+    // lc.setDigit(0, 0, digit23, false);   //(0,0)
+    digit20 = displaysetTimer1/10;
+    digit22 = displaysetTimer2/10;
+      if(displaysetTimer2 < 10){
+        digit23 = displaysetTimer2;
+      }  
+      if(displaysetTimer2 >= 10){
+        digit23 = (displaysetTimer2)-((displaysetTimer2/10)*(10));  
+      }
+      if(displaysetTimer1 < 10){
+        digit21 = displaysetTimer1;
+      }
+      if(displaysetTimer1 >= 10){
+        digit21 = (displaysetTimer1)-((displaysetTimer1/10)*(10));
+      }
+  }
+
+  if(timeMode == 3){
+    displaysetTimer1 = holdTimer1;
+    displaysetTimer2 = holdTimer2;
+    if(millis() - dpTimer > 500 && loopTimer == 0){
+    // lc.setDigit(0, 2, digit20, false);   //(0,2)
+    // lc.setDigit(0, 6, digit21, false);   //(0,6)
+    // lc.setDigit(0, 4, digit22, true);   //(0,4) 
+    // lc.setDigit(0, 0, digit23, true);   //(0,0)
+      dpTimer = millis();
+      loopTimer = 1;      
+    }
+    if(millis() - dpTimer > 500 && loopTimer == 1){
+    // lc.setDigit(0, 2, digit20, false);   //(0,2)
+    // lc.setDigit(0, 6, digit21, false);   //(0,6)
+    // lc.setDigit(0, 4, digit22, false);   //(0,4) 
+    // lc.setDigit(0, 0, digit23, false);   //(0,0)
+      dpTimer = millis();
+      loopTimer = 0;  
+    }
+  }
 }
 
