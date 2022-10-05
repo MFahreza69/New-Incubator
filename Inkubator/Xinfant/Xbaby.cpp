@@ -59,25 +59,27 @@ int Xbaby::get_value_pos(int set_humidity, int value_humidity, int last_pos){
 
 float Xbaby::get_value_baby_skin(float valueA, float valueB, int pin){
     float avr_temp = 0;
-    for(unsigned int i=0; i<20; i++){
-        for(int a=0; a<20; a++){
-            sampleData[a] = analogRead(pin);
+
+    // for(unsigned int i=0; i<20; i++){
+    //     for(int a=0; a<20; a++){
+    //         sampleData[a] = analogRead(pin);
+    //     }
+    //     for(int b=0; b<20; b++){
+    //         avr_temp += sampleData[b];
+    //     }
+        avr_temp = analogRead(pin);
+        // avr_temp = avr_temp/20;
+        // all_temp = (((-0.00005*(pow(avr_temp,3))) + (0.09*(pow(avr_temp, 2))) - (38.6*(avr_temp)) + 33102)/1000) + 2;
+        // all_temp = (((0.0003*(pow(avr_temp,3))) - (0.4*(pow(avr_temp,2))) + (247*avr_temp) - 25442)/1000);
+        // all_temp = (0.0225*avr_temp) + (20.739);
+        all_temp = ((-0.001*(pow(avr_temp, 2))) + (18*avr_temp) + 24125)/1000;
+        if(avr_temp <= 100){
+            return all_temp = 0;
         }
-        for(int b=0; b<20; b++){
-            avr_temp += sampleData[b];
-        }
-        avr_temp = avr_temp/21;
-        avr_temp = (valueA*avr_temp) + valueB;
-        all_temp += avr_temp;
-    }
-    all_temp = all_temp/21;
-    if(all_temp < 0 || all_temp > 60){
-        all_temp = 0;
-        return all_temp;
-    }else{
-        return all_temp;
-    }
+    // }
+    return all_temp;
 }
+
 
 int Xbaby::get_value_fan(float set_temp, int mode, float temp_chamber, float temp_baby0, float temp_baby1, float set_baby_humidity, float baby_humidity){
     float err_chamber = (set_temp*10) - (temp_chamber*10);
@@ -169,18 +171,18 @@ int Xbaby::get_value_heater(float set_temp,int mode, int high, float temp_chambe
         }else{
             if(temp_baby0 != 0){
                 if(err_baby0 < -0.5 && err_baby0 > -99){
-                    return 10;
+                    return 0;
                 }
                 if(err_baby0 < 150 && err_baby0 >= 70.5){
-                    return 225;
+                    return 220;
                 }
                 if(err_baby0 < 70.5 && err_baby0 >= 50.5){
                     return 200;
                 }
-                if(err_baby0 < 50.5 && err_baby0 >= 30.5){
+                if(err_baby0 < 50.5 && err_baby0 >= 40.5){
                     return 170;
                 }
-                if(err_baby0 < 30.5 && err_baby0 >= 20.5){
+                if(err_baby0 < 40.5 && err_baby0 >= 20.5){
                     return 120;
                 }            
                 if(err_baby0 < 20.5 && err_baby0 >= 10.5){
@@ -201,15 +203,15 @@ int Xbaby::get_value_heater(float set_temp,int mode, int high, float temp_chambe
                     return 10;
                 }
                 if(err_baby1 < 150 && err_baby1 >= 70.5){
-                    return 255;
+                    return 220;
                 }
                 if(err_baby1 < 70.5 && err_baby1 >= 50.5){
                     return 200;
                 }
-                if(err_baby1 < 50.5 && err_baby1 >= 30.5){
+                if(err_baby1 < 50.5 && err_baby1 >= 40.5){
                     return 170;
                 }
-                if(err_baby1 < 30.5 && err_baby1 >= 20.5){
+                if(err_baby1 < 40.5 && err_baby1 >= 20.5){
                     return 120;
                 }            
                 if(err_baby1 < 20.5 && err_baby1 >= 10.5){
@@ -241,13 +243,13 @@ int Xbaby::get_value_heater(float set_temp,int mode, int high, float temp_chambe
                 if(err_baby0 < 70.5 && err_baby0 >= 50.5){
                     return 220;
                 }
-                if(err_baby0 < 50.5 && err_baby0 >= 30.5){
+                if(err_baby0 < 50.5 && err_baby0 >= 40.5){
                     return 210;
                 }
-                if(err_baby0 < 30.5 && err_baby0 >= 20.5){
+                if(err_baby0 < 40.5 && err_baby0 >= 30.5){
                     return 180;
                 }            
-                if(err_baby0 < 20.5 && err_baby0 >= 10.5){
+                if(err_baby0 < 30.5 && err_baby0 >= 10.5){
                     return 140;
                 }
                 if(err_baby0 < 10.5 && err_baby0 >= 5.5){
@@ -265,15 +267,15 @@ int Xbaby::get_value_heater(float set_temp,int mode, int high, float temp_chambe
                     return 10;
                 }
                 if(err_baby1 < 150 && err_baby1 >= 70.5){
-                    return 255;
+                    return 225;
                 }
                 if(err_baby1 < 70.5 && err_baby1 >= 50.5){
                     return 220;
                 }
-                if(err_baby1 < 50.5 && err_baby1 >= 30.5){
+                if(err_baby1 < 50.5 && err_baby1 >= 40.5){
                     return 200;
                 }
-                if(err_baby1 < 30.5 && err_baby1 >= 20.5){
+                if(err_baby1 < 40.5 && err_baby1 >= 30.5){
                     return 180;
                 }            
                 if(err_baby1 < 20.5 && err_baby1 >= 10.5){
