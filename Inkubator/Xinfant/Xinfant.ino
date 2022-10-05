@@ -1,11 +1,9 @@
-
 //tes
-
 #include "xbaby.h"
-#include <EEPROM.h>
+#include <Wire.h>
 #include <RTClib.h>
 #include <ArduinoJson.h>
-#include "src/library/O2control/XMV20_O2Sensor.h"
+#include <PID_v1.h>
 #include "src/library/SHT15/SHT1X.h"
 #include "src/library/SimpleTimer/SimpleTimer.h"
 #include <SoftwareSerial.h>
@@ -19,28 +17,19 @@
 #define oxygenPin       A2          /*A5*/           /*A2*/
 #define skinTemp1       A0
 #define skinTemp2       A1
-// #define servoPin        14           /*4*/            /*14*/
-#define warmerPin       5 /* default 5*/ /*13*/
+#define waterPin        14           /*4*/            /*14*/
+#define warmerPin       13      /* default 5*/ /*auxiliary 13*/
 #define heaterPin       4            /*11*/           /*4*/
 #define fanPin          3           /*12*/           /*3*/
 // #define valvePin        15
 #define pinBuzzer       12
-#define O2Press         A3
+// #define O2Press         A3
 #define pinButton       A3 /* pinButton with ADC */
 #define pinOnOff        A4          /*A10*/          /*A4*/
 #define voltage5V       A5          /*A10*/          /*A5*/
 #define pinLamp         A7          /*38*/           /*A7*/
 #define pinRst          33          /**/            /*33*/
 
-/*buzzer tone*/
-#define DO  262
-#define RE  294
-#define MI  330
-#define FA  349
-#define SOL 395
-#define LA  440
-#define SI  494
-#define DOO 523
 /*
     Define variables
 */
@@ -49,16 +38,7 @@ float babySkinTemp0         = 0;
 float babySkinTemp1         = 0;
 float chamberTemp0          = 0;
 float humidityMid           = 0;
-// float O2Pressure            = 0;
-// uint8_t fio2Mid             = 0;
-// uint8_t spo2Mid             = 0;
-// uint8_t bpmMid              = 0;
-// uint8_t oxygen              = 0;
 uint8_t outWarmer;
-
-uint8_t valuePower0         = 0; //Masuk ke Menu Value
-uint8_t valuePower1         = 0; //Masuk ke pengaturan nilai (temp,humi,O2)
-uint8_t valuePower2         = 0; //Untuk ON/OFF
 uint8_t statHigh            = 0;
 uint8_t callBtn             = 1;
 unsigned long lastTime0     = 0;
@@ -68,8 +48,6 @@ unsigned long lastTime2     = 0;
 int numberA                 = 0;
 int numberB                 = 0;
 /* lockButton */
-// int timeBtn0                = 0;
-// int timeBtn1                = 0;
 int lock                    = 1;
 unsigned long last_time     = 0;
 unsigned long last_time1    = 0;
@@ -90,8 +68,9 @@ uint8_t humiMode            = 0;
 uint8_t pos                 = 0;
 uint8_t last_pos            = 0;
 uint8_t highTemp            = 0;
-uint8_t alarmValue          = 0;
-uint8_t sunyiValue          = 1;
+uint8_t alarmValue;
+uint8_t sunyiValue          = 0;
+uint8_t silent              = 0;
 uint8_t debugging           = 1;
 uint8_t error0              = 0; 
 uint8_t error1              = 0; 
@@ -100,9 +79,7 @@ uint8_t error3              = 0;
 uint8_t error4              = 0; 
 uint8_t error5              = 0; 
 uint8_t error6              = 0; 
-uint8_t error7              = 0; 
-uint8_t error8              = 0; 
-uint8_t last_sunyi_value    = 0;
+// uint8_t last_sunyi_value    = 0;
 uint8_t callStatt           = 0;
 uint8_t setFiO2             = 20;
 float displaySetTemp        = 27;
@@ -124,8 +101,6 @@ float errorData             = 0;
 float errorHumidity         = 0;
 unsigned long lastTime3     = 0;
 uint8_t loopAlarm           = 0;
-int autoMoveModeBaby        = 0;
-int autoMoveModeAir         = 0;
 uint8_t lastError0          = 0;
 uint8_t lastError1          = 0;
 uint8_t lastError2          = 0;
@@ -135,8 +110,11 @@ uint8_t lastError5          = 0;
 uint8_t lastError6          = 0;
 uint8_t suhu                = 0;
 uint8_t sensor              = 0;
-uint8_t O2                  = 0;
+// uint8_t O2                  = 0;
 uint8_t heatedPower         = 0;
+//error variable
+uint8_t powerIn             = 0;
+uint8_t waterIn             = 0;       
 
 //Alarm variable data
 float deviationAir = 0;
@@ -147,9 +125,9 @@ uint8_t steadytime1 = 0;
 float errorAir;
 float errorSkin0;
 float errorSkin1;
-uint8_t probeMissing;
-uint8_t deviation;
-uint8_t highalarm;
+
+//timer Variable data
+uint8_t timeMode = 0;
 
 static char userInput[255];
 static unsigned char x;
@@ -161,43 +139,51 @@ char in = 1;
 int g = 0;
 float h;
 int i = 0;
-float j;
-int k = 0;
-float l;
-int m = 0;
-float n;
-int o = 0;
-float p;
-int q = 0;
+
+
+double setPoint1; 
+double input;
+double outputHeater;
+double outputFan;
+
+PID myPID(&input, &outputHeater, &setPoint1, 2, 5 ,1 ,DIRECT);
+PID myPID2(&input, &outputFan, &setPoint1, 2, 5, 1, DIRECT);
 
 Xbaby Xinfant;
-O2Sensor O2SensorDev(oxygenPin);
+RTC_DS3231 rtc;
 SHT1x sht15(shtData, shtClock);
 SoftwareSerial mySerial(6, 24); // RX, TX // Only Use RX
 SimpleTimer timer0;
 SimpleTimer timer1;
+SimpleTimer timer3;
 
 void pin_setup(){
-  pinMode(pinOnOff, INPUT);
       /* pin led */
   pinMode(26, OUTPUT);
   pinMode(heaterPin, OUTPUT);
   pinMode(fanPin, OUTPUT);
   pinMode(warmerPin, OUTPUT);
-  pinMode(voltage5V, OUTPUT);
   pinMode(pinRst, OUTPUT);
   pinMode(pinBuzzer, OUTPUT);
   pinMode(pinLamp, OUTPUT);
+  pinMode(voltage5V, INPUT);
+  pinMode(waterPin, INPUT);
 }
 
 void setup(){
     mySerial.begin(9600);
     Serial1.begin(9600);
+    // rtc.begin();
+    // Serial.begin(9600);
     // setup_fast_pwm();
     pin_setup();
-    timer0.setInterval(1500, generate_json);
-    analogWrite(voltage5V, 255);
+    timer0.setInterval(200, generate_json); 
+    timer3.setInterval(500, PID);
     analogWrite(warmerPin, 0);
+    myPID.SetOutputLimits(0,255);
+    myPID.SetMode(AUTOMATIC);
+    myPID2.SetOutputLimits(70, 255);
+    myPID2.SetMode(AUTOMATIC);
 }
 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -206,33 +192,21 @@ void loop(){
 }
 
 void run_program(){
-    on_power();
     timer0.run();
-  if(valuePower2 == 1){
+    timer3.run();
     communication_serial();
     digitalWrite(pinLamp, HIGH);
     digitalWrite(26, LOW); 
     read_skin_temperature();
     read_temperature();
-    run_warmer();
-    run_control();
+    // run_warmer();
+    // run_control();
     read_error();
+    alarm();
+
+    // pewaktu();
+    // Serial.println(analogRead(skinTemp1));
     // doremi();
-  }
-  if(valuePower2 == 0){
-    // on_power();
-    noTone(pinBuzzer);
-    chamberTemp0 = 0;
-    babySkinTemp0 = 0;
-    babySkinTemp1 = 0;
-    humidityMid = 0;
-    skinMode = 0;
-    humiMode = 0;
-    set_pwm(0, 0);
-    digitalWrite(pinLamp, LOW);
-    digitalWrite(26, HIGH);
-    analogWrite(warmerPin, 0);
-    }
 }
 
 /*Communication Data*/////////////////////////////////////////////////////////////////////////////////////////
@@ -251,69 +225,44 @@ void communication_serial(){
                 skinMode = in["data1"]["mode"][0];
                 humiMode = in["data1"]["mode"][1];
                 highTemp = in["data1"]["mode"][2];
+                alarmValue = in["data1"]["mode"][3];
                 sunyiValue = in["data1"]["mode"][4];
+                timeMode = in["data1"]["mode"][5];
             }
             x2 = 0;
         }
     }                
 }
 
-//Send data using Serial 1 (TX pin 21/PD3) but send data json in string
+//Send data using Serial 1 (TX pin 21/PD3) but send data json
 void generate_json(){
+//   DateTime now = rtc.now();
   StaticJsonDocument<512> outDbg;
   StaticJsonDocument<512> outBtn;
-  if(valuePower2 == 1){
         outDbg["suhu"][0] = chamberTemp0;
         outDbg["suhu"][1] = babySkinTemp0;
         outDbg["suhu"][2] = babySkinTemp1;
         outDbg["suhu"][3] = humidityMid;
-        outDbg["btn"][0] = valuePower2;
-        outDbg["pow"][0] = heaterPwm;
+        // outDbg["pow"][0] = outputFan;
+        outDbg["pow"][0] = outputHeater;
+        // outDbg["tim"][0] = now.hour();
+        // outDbg["tim"][1] = now.minute();
+        // outDbg["tim"][2] = now.second();
         outDbg["err"][0] = error0; //probe missing
         outDbg["err"][1] = error1; // alarm deviation airway
         outDbg["err"][2] = error2; // alarm deviation skin
         outDbg["err"][3] = error3;
         outDbg["err"][4] = error4;
-        outDbg["err"][5] = steadytime0;
-        outDbg["err"][6] = steadytime1;
+        outDbg["err"][5] = error5;
+        outDbg["err"][6] = powerIn;
         serializeJson(outDbg, Serial1);
         Serial1.println();
-    }
-  if(valuePower2 == 0){
-        outBtn["btn"][0] = valuePower2;
-        serializeJson(outBtn, Serial1);
-        Serial1.println();
-  }    
+        // serializeJson(outDbg, Serial);
+        // Serial.println();    
+     
 }
 /*END Communication Data*/////////////////////////////////////////////////////////////////////////////////////////
 
-
-/*Button ON/OFF*/
-void on_power(){
-    int onOff = analogRead(pinOnOff);
-    if(onOff >= 1020 && onOff <= 1030){ //tombol on/off ditekan lama sampai nilai analog mencapai range 1020-1030
-        numberA++;
-    }
-    if(onOff >= 0 && onOff <= 500){ //tombol on/off tidak ditekan lama nilai numberA tidak akan bertambah
-        numberA = 0;
-        numberB = 0;
-    }
-    /* on */
-    if(numberA >= 200 && valuePower2 == 0){ //kondisi awal valuepower2=0 dan nilai numberA naik setelah pin on/off mencapai nilai range
-        if(numberB == 0){ //kondisi awal numberB=0
-            valuePower2 = 1; //indikator sistem ON
-            numberB = 1;
-        }
-    }
-    /* off*/
-    if(numberA >= 1 && valuePower2 == 1){ //tombol on/off ditekan kembali sampai nilaiA = 8 dan kondisi valuePower2=1
-        if(numberB == 0){
-            valuePower2 = 0;
-            numberB = 1;
-        }
-    }
-}
-/*end button ON/OFF*/
 
 /*Read Skin, Airway, HUMidi*/
 void read_temperature(){
@@ -321,16 +270,16 @@ void read_temperature(){
     float read_sht_humidity = 0;
     read_sht_temperature = sht15.readTemperatureC();
     read_sht_humidity = sht15.readHumidity();
-    if(read_sht_temperature <= 0){
+    if(read_sht_temperature < 1){
         chamberTemp0 = 0;
     }
-    if(read_sht_temperature != 0 || read_sht_temperature > 0){
+    if(read_sht_temperature > 1){
         chamberTemp0 = read_sht_temperature;
     }
-    if(read_sht_humidity <= 0){
+    if(read_sht_humidity < 1){
         humidityMid = 0;
     }
-    if(read_sht_humidity != 0 || read_sht_humidity > 0){
+    if(read_sht_humidity > 1){
         humidityMid = read_sht_humidity;
     }
 }
@@ -361,17 +310,16 @@ void read_skin_temperature(){
     }
 }
 
-
 /*Control*/
-void run_control(){
-    fanPwm = Xinfant.get_value_fan(setTemp, skinMode, chamberTemp0, babySkinTemp0, babySkinTemp1, setHumidity, humidityMid);
-    heaterPwm = Xinfant.get_value_heater(setTemp, skinMode , highTemp, chamberTemp0, babySkinTemp0, babySkinTemp1);
-    set_pwm(fanPwm, heaterPwm);
-        if(skinMode == 0 && humiMode == 0){
-        set_pwm(0, 0);
-        analogWrite(warmerPin, 0);
-    }
-}
+// void run_control(){
+//     fanPwm = Xinfant.get_value_fan(setTemp, skinMode, chamberTemp0, babySkinTemp0, babySkinTemp1, setHumidity, humidityMid);
+//     heaterPwm = Xinfant.get_value_heater(setTemp, skinMode , highTemp, chamberTemp0, babySkinTemp0, babySkinTemp1);
+//     set_pwm(fanPwm, heaterPwm);
+//         if(skinMode == 0 && humiMode == 0){
+//         set_pwm(0, 0);
+//         analogWrite(warmerPin, 0);
+//     }
+// }
 
 // void setup_fast_pwm(){
 //     TCCR3A = (1<<COM3B1)|(1<<COM3B0)|(1<<COM3A1)|(0<<COM3A0)|(1<<WGM32)|(1<<WGM31)|(1<<WGM30);
@@ -394,7 +342,7 @@ void run_warmer(){
             analogWrite(warmerPin, 0);
             warmerPwm = 0;
         }else {
-            if(errorHumidity < -1.5 && errorHumidity > -35){
+            if(errorHumidity < -0.5 && errorHumidity > -35){
                 analogWrite(warmerPin, 0);
                 warmerPwm = 0;
             }  
@@ -410,15 +358,15 @@ void run_warmer(){
                 analogWrite(warmerPin, 200); //200
                 warmerPwm = 200;
             }
-            if(errorHumidity < 70 && errorHumidity > 20){
+            if(errorHumidity < 70 && errorHumidity >= 20){
                 analogWrite(warmerPin, 190); //190
                 warmerPwm = 190;
             }
-            if(errorHumidity < 20 && errorHumidity > 5){
+            if(errorHumidity < 20 && errorHumidity >= 5){
                 analogWrite(warmerPin, 180); //180
                 warmerPwm = 180;
             }
-            if(errorHumidity < 5 && errorHumidity > 1){
+            if(errorHumidity < 5 && errorHumidity >= -0.5){
                 analogWrite(warmerPin, 180); //180
                 warmerPwm = 180; //100
             }
@@ -432,29 +380,23 @@ void run_warmer(){
 
 /*End Control*/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// void pewaktu(){
+//     if(timeMode == 0){
+//         rtc.adjust(DateTime(0000,0,00,00,00,1)); 
+//     }    
+// }
+
 /*Error Session*/
 
-/*cek sensor condition*/
-
 void read_error(){
-    lastError0 = error0; // probe missing (error1)
-    lastError1 = error1; // deviation skin - (error2)
-    lastError2 = error2; // deviation air - (error2)
-    lastError3 = error3; // hightemp (error3)
-    lastError4 = error4; // hightemp (error3)
-    lastError5 = error5;
-    lastError6 = error6;
     errorAir = (setTemp * 10) - (chamberTemp0 * 10);
     errorSkin0 = (setTemp * 10) - (babySkinTemp0 * 10);
     errorSkin1 = (setTemp * 10) - (babySkinTemp1 * 10);
-
     /*probe sensor missing*///////////////////////
-    read_temperature();
-    read_skin_temperature();
-    if(babySkinTemp0 == 0 || babySkinTemp1 == 0 || chamberTemp0 == 0){
+    if(babySkinTemp0 == 0 || chamberTemp0 == 0){
         error0 = 1;
     }
-    if(babySkinTemp0 != 0 && babySkinTemp1 !=0 && chamberTemp0 != 0){
+    if(babySkinTemp0 != 0 && chamberTemp0 != 0){
         error0 = 0;
     }
     /*end probe sensor missing*/////////////////////
@@ -467,7 +409,6 @@ void read_error(){
         if(errorSkin0 < 1 && errorSkin0 >= -1 || errorSkin1 < 1 && errorSkin1 >=-1){
             steadytime0++;
             error1 = 0;
-
             if(steadytime0 >= 60){
                 steadytime0 = 60;
             }
@@ -481,7 +422,6 @@ void read_error(){
             }
         }  
     }
-
     if(skinMode == 2){
         steadytime0 = 0;
         error1 = 0;
@@ -515,7 +455,7 @@ void read_error(){
     }else{
         error3 = 0;
     }
-    if(highTemp == 1 && chamberTemp0 >= 39.5 || babySkinTemp0 >= 38 || babySkinTemp1 >= 38){
+    if(highTemp == 1 && chamberTemp0 >= 39.5 || babySkinTemp0 >= 38.5 || babySkinTemp1 >= 38.5){
         error4 = 1;
     }else{
         error4 = 0;
@@ -523,48 +463,22 @@ void read_error(){
     /*end High Temperature Alarm*/////////////////////////
     
    
+    /*Power Failure*/
+    powerIn = digitalRead(voltage5V);
+    if(powerIn == 1){
+        error5 = 0;
+    }
+    if(powerIn == 0){
+        error5 = 1;
+    }
 
-    if(error0 != lastError0){
-        if(error0 != 0)
-            sunyiValue = 1;
-        if(error0 == 0 && last_sunyi_value == 2)
-            sunyiValue = 2;
+    /*Water at low Level*/
+    waterIn = digitalRead(waterPin);
+    if(waterIn == 1){
+        error6 = 1;
     }
-    if(error1 != lastError1){
-        if(error1 != 0)
-            sunyiValue = 1;
-        if(error1 == 0 && last_sunyi_value == 2)
-            sunyiValue = 2;
-    }
-    if(error2 != lastError2){
-        if(error2 != 0)
-            sunyiValue = 1;
-        if(error2 == 0 && last_sunyi_value == 2)
-            sunyiValue = 2;
-    }
-    if(error3 != lastError3){
-        if(error3 != 0)
-            sunyiValue = 1;
-        if(error3 == 0 && last_sunyi_value == 2)
-            sunyiValue = 2;
-    }
-    if(error4 != lastError4){
-        if(error4 != 0)
-            sunyiValue = 1;
-        if(error4 == 0 && last_sunyi_value == 2)
-            sunyiValue = 2;
-    }
-    if(error5 != lastError5){
-        if(error5 != 0)
-            sunyiValue = 1;
-        if(error5 == 0 && last_sunyi_value == 2)
-            sunyiValue = 2;
-    }
-    if(error6 != lastError6){
-        if(error6 != 0)
-            sunyiValue = 1;
-        if(error6 == 0 && last_sunyi_value == 2)
-            sunyiValue = 2;
+    if(waterIn == 0){
+        error6 = 0;
     }
 
 }
@@ -572,33 +486,43 @@ void read_error(){
 
 /*alarm status*/
 void alarm(){
-    if(sunyiValue == 1){
-        if(millis() - lastTime3 > 250 && loopAlarm == 0){
+    // Serial.println(alarmValue);
+    if(sunyiValue == 1 && alarmValue == 0){
+        if(millis() - lastTime3 > 500 && loopAlarm == 0){
             lastTime3 = millis();
             loopAlarm = 1;
-            tone(pinBuzzer, 1200);
+            tone(pinBuzzer, 1900);
+            // Serial.println("Alarm!");
         }
-        if(millis() - lastTime3 > 250 && loopAlarm == 1){
+        if(millis() - lastTime3 > 500 && loopAlarm == 1){
             lastTime3 = millis();
             loopAlarm = 0;
             noTone(pinBuzzer);
         }
-    }else{
+    }
+    if(sunyiValue == 1 && alarmValue == 1){
+        // Serial.println("Alarm!!!!");
+    }
+    else{
         noTone(pinBuzzer);
     }
 }
 /*End alarm status*/
 
-/*tone buzzer function*/
-void doremi(){
-    if(millis() - h > 500 && g == 0){
-        tone(pinBuzzer, DO);
-        h = millis();
-        g = 1;
+// /*tone buzzer function*/
+void PID(){
+setPoint1 = setTemp; 
+if(skinMode == 2){
+    input = chamberTemp0;
+    myPID.Compute();
+    myPID2.Compute();
+    set_pwm(outputFan, outputHeater);
+}
+else{
+    set_pwm(outputFan, outputHeater);
+    outputHeater = 0;
+    outputFan = 0;
     }
-    if(millis() - h > 500 && g == 1){
-        tone(pinBuzzer, RE);
-        h = millis();
-        g = 0;
-    }
+
+
 }
