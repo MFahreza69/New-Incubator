@@ -178,7 +178,7 @@ void setup(){
     Serial1.begin(9600);
     rtc.begin();
     // Serial.begin(9600);
-    // setup_fast_pwm();
+    setup_fast_pwm();
     pin_setup();
     timer0.setInterval(1000, generate_json); 
     timer3.setInterval(1000, PID);
@@ -208,7 +208,7 @@ void run_program(){
     digitalWrite(26, LOW); 
     // read_skin_temperature();
     read_temperature();
-    // run_warmer();
+    run_warmer();
     // run_control();
     alarm();
     // tuning();
@@ -330,16 +330,21 @@ void run_control(){
     }
 }
 
-// void setup_fast_pwm(){
-//     TCCR3A = (1<<COM3B1)|(1<<COM3B0)|(1<<COM3A1)|(0<<COM3A0)|(1<<WGM32)|(1<<WGM31)|(1<<WGM30);
-//     TCCR3B = (1<<CS32)|(0<<CS31) | (1<<CS30);
+void setup_fast_pwm(){
+//     TCCR3A = (1<<COM3B1)|(1<<COM3B0)|(1<<COM3A1)|(0<<COM3A0)|(1<<WGM32)|(1<<WGM31)|(1<<WGM30); //10bit
+    TCCR3A = (1<<COM3B1)|(1<<COM3B0)|(1<<COM3A1)|(0<<COM3A0)|(1<<WGM32)|(0<<WGM31)|(1<<WGM30); //8bit
+//     TCCR3B = (1<<CS32)|(0<<CS31)|(1<<CS30); //1024 Prescaler
+    TCCR3B = (1<<CS32)|(0<<CS31)|(0<<CS30); //256 Prescaler
+//     TCCR3B = (0<<CS32)|(1<<CS31)|(1<<CS30); //64 Prescaler
 //     OCR3A = 0;
 //     OCR3B = 1023;
-// }
+    OCR3B = 255;
+}
 
 void set_pwm(int fan, int heater){
     // OCR3A = heater;
     // OCR3A = fan;
+    OCR3B = outputFan;
     analogWrite(heaterPin, heater);
     analogWrite(fanPin, fan);
 }
