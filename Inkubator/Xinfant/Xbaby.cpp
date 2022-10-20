@@ -93,19 +93,19 @@ int Xbaby::get_value_fan(float set_temp, int mode, float temp_chamber, float tem
             if(temp_baby0 != 0){
                 if(err_baby0 < -0.5){
                     if(err_humidity >= 0){
-                        return 130;
+                        return 60;
                     }
-                    return 50;
+                    return 100;
                 }
                 if(err_baby0 < 150 && err_baby0 >= 0.5){
                     if(err_humidity >= 0){
-                        return 130;
+                        return 60;
                     }
-                    return 130;
+                    return 100;
                 }
                 if(err_baby0 < 0.5 && err_baby0 >= -0.5){
                     if(err_humidity >= 0){
-                        return 130;
+                        return 60;
                     }
                     return 100;
                 }
@@ -114,18 +114,18 @@ int Xbaby::get_value_fan(float set_temp, int mode, float temp_chamber, float tem
             if(temp_baby1 == 0 && temp_baby1 != 0){
                 if(err_baby1 < -0.5){
                     if(err_humidity >= 0){
-                        return 130;
+                        return 60;
                     }
-                    return 50;
+                    return 100;
                 }
                 if(err_baby1 < 150 && err_baby1 >= 0.1){
                     if(err_humidity >= 0){
-                        return 130;
-                    return 130;
+                        return 60;
+                    return 100;
                 }
                 if(err_baby1 < 0.1 && err_baby1 >= -0.5){
                     if(err_humidity >= 0){
-                        return 130;
+                        return 60;
                     }
                     return 100;
                 }
@@ -140,19 +140,19 @@ int Xbaby::get_value_fan(float set_temp, int mode, float temp_chamber, float tem
         else{
             if(err_chamber < -0.5){
                 if(err_humidity >= 0){
-                    return 130;
+                    return 60;
                 }
-                return 50;
+                return 100;
             }
             if(err_chamber < 150 && err_chamber >= 0.1){
                 if(err_humidity >= 0){
-                    return 130;
+                    return 60;
                 }
-                return 130;
+                return 100;
             }
             if(err_chamber < 0.1 && err_chamber > -0.5){
                 if(err_humidity >= 0){
-                    return 130;
+                    return 60;
                 }
                 return 100;
             }
