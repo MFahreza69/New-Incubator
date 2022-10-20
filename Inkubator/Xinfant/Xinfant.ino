@@ -253,7 +253,7 @@ void generate_json(){
         outDbg["sh"][2] = babySkinTemp1;
         outDbg["sh"][3] = humidityMid;
         // outDbg["pow"][1] = heaterPwm;
-        outDbg["pw"][0] = outputHeater;
+        outDbg["pw"][0] = round(outputHeater);
         outDbg["tm"][0] = now.hour();
         outDbg["tm"][1] = now.minute();
         // outDbg["tim"][2] = now.second();
@@ -595,7 +595,7 @@ else if(skinMode == 1 && errorSkin0 <= 5){
 else{
     set_pwm(outputFan, outputHeater);
     outputHeater = 0;
-    outputFan = 0;
+    outputFan = 90;
     }
 
 // if(millis()>serialTime)
