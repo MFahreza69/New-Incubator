@@ -570,33 +570,69 @@ errorAir = (setTemp * 10) - (chamberTemp0 * 10);
 errorSkin0 = (setTemp * 10) - (babySkinTemp0 * 10);
 errorSkin1 = (setTemp * 10) - (babySkinTemp1 * 10);
 
-if(skinMode == 2 && errorAir >= 6){
+if(highTemp == 0){
+  if(skinMode == 2 && errorAir > 6){
     input = chamberTemp0;
     myPID.Compute();
     myPID2.Compute();
     set_pwm(outputFan, outputHeater);
-}
-else if(skinMode == 2 && errorAir <= 6){
+  }
+  else if(skinMode == 2 && errorAir <= 6){
     run_control();
     outputHeater = heaterPwm;
+    outputFan = fanPwm;
     input = chamberTemp0; 
-}
-else if(skinMode == 1 && errorSkin0 >= 5){ //jika sdh ada sensor skin2 di rata2
+  }
+  else if(skinMode == 1 && errorSkin0 > 4){
     input = babySkinTemp0;
     myPID3.Compute();
     myPID2.Compute();
     set_pwm(outputFan, outputHeater);
-}
-else if(skinMode == 1 && errorSkin0 <= 5){
+  }
+  else if(skinMode == 1 && errorSkin0 <= 4){
     run_control();
     outputHeater = heaterPwm;
+    outputFan = fanPwm;
     input = babySkinTemp0;
-}
-else{
+  }
+  else{
     set_pwm(outputFan, outputHeater);
     outputHeater = 0;
-    outputFan = 90;
+    outputFan = 100;
     }
+  }
+
+if(highTemp == 1){
+  if(skinMode == 2 && errorAir > 7){
+    input = chamberTemp0;
+    myPID.Compute();
+    myPID2.Compute();
+    set_pwm(outputFan, outputHeater);
+  }
+  else if(skinMode == 2 && errorAir <= 7){
+    run_control();
+    outputHeater = heaterPwm;
+    outputFan = fanPwm;
+    input = chamberTemp0; 
+  }
+  else if(skinMode == 1 && errorSkin0 > 5){ //jika sdh ada sensor skin2 di rata2
+    input = babySkinTemp0;
+    myPID3.Compute();
+    myPID2.Compute();
+    set_pwm(outputFan, outputHeater);
+  }
+  else if(skinMode == 1 && errorSkin0 <= 5){
+    run_control();
+    outputHeater = heaterPwm;
+    outputFan = fanPwm;
+    input = babySkinTemp0;
+  }
+  else{
+    set_pwm(outputFan, outputHeater);
+    outputHeater = 0;
+    outputFan = 100;
+    }    
+}  
 
 // if(millis()>serialTime)
 //   {
