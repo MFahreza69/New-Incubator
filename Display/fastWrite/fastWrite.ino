@@ -31,13 +31,14 @@
 
 
 /*seven segment display define*/
-//Pin 7 = DIN                 //34        //7
-//PIN 6 = ClK                 //35        //6
-//Pin 5 = CS/LOAD             //33        //5
+//Pin 34 = DIN                         //7
+//PIN 35 = ClK                         //6
+//Pin 33 = CS/LOAD                     //5
 //LedControl (DIN, CLK, CS/Load, Number of IC used)
 LedControl lc = LedControl(34, 35, 33, 3); 
-int graphpin[] = {37, 38, 39, 40, 41, 42, 43, 44, 52, 51};                    //pcb lama
-//graphpin pcb allisha {37, 38, 39, 40, 41, 42, 43, 44, 52, 51}  //36, 37, 38, 39, 40, 41, 42, 43, 44, 45
+int graphpin[] = {37, 38, 39, 40, 41, 42, 43, 44, 52, 51};                    
+//pcb lama
+//36, 37, 38, 39, 40, 41, 42, 43, 44, 45
 /*End Define*//////////////////////////////////////////////
 
 //display setpoint
@@ -90,7 +91,7 @@ int error6 = 0;
 int error7 = 0;
 int error8 = 0;
 
-//valuePower
+
 int valuePower = 1;
 static char inputData[256];
 int x;
@@ -117,6 +118,7 @@ uint16_t alarmValue  = 0;
 uint8_t alarmValue2 = 0;
 unsigned long dpTimer;
 uint8_t loopTimer;
+uint16_t convert;
 
 
 //data button
@@ -207,24 +209,12 @@ SimpleTimer timer0;
 SimpleTimer timer1;
 SimpleTimer timer3;
 
-// ISR(TIMER1_COMPA_vect){
-//     btn_menu();
-//     // set_btn();
-// }
 
 void setup() {
-  // cli();
-  // TCCR1A = 0;
-  // TCCR1B = 0;
-  // OCR1A = reload;
-  // TCCR1B = (1<<WGM12) |(1<<CS12) ;
-  // TIMSK = (1<<OCIE1A);
-  // sei();
 
   Serial1.begin(9600);
   // Serial.begin(9600);
   timer0.setInterval(1000, generate_json);
-  // timer3.setInterval(100 ,btn_menu);
   lc.setIntensity(0, 2);
   lc.setIntensity(1, 2);
   lc.setIntensity(2, 2);
@@ -326,27 +316,19 @@ void run_program(){
 /* Send and Receive Data Session*///// 
 void generate_json(){
     StaticJsonDocument<512> out1;
-    JsonObject DataButton = out1.createNestedObject("data1");
-    DataButton["sn"][0] = sendTemp;
+    JsonObject DataButton = out1.createNestedObject("dt1");
+    DataButton["sn"][0]   = sendTemp;
     // DataButton["sn"][1] = sendSkin;
-    DataButton["sn"][1] = sendHumi;
-    DataButton["mode"][0] = skinMode;
-    DataButton["mode"][1] = humiMode;
-    DataButton["mode"][2] = highTemp;
-    DataButton["mode"][3] = alarmValue2;
-    DataButton["mode"][4] = sirenAlarm;
-    DataButton["mode"][5] = timeMode;
-    DataButton["mode"][6] = sendAlarm;
+    DataButton["sn"][1]   = sendHumi;
+    DataButton["mod"][0] = skinMode;
+    DataButton["mod"][1] = humiMode;
+    DataButton["mod"][2] = highTemp;
+    DataButton["mod"][3] = alarmValue2;
+    DataButton["mod"][4] = sirenAlarm;
+    DataButton["mod"][5] = timeMode;
+    DataButton["mod"][6] = sendAlarm;
     serializeJson(out1, Serial1);
-    Serial1.println();
-
-    // serializeJson(out1, Serial);
-    // Serial.println();
-    // Serial.print(digit20);
-    // Serial.print(digit21);
-    // Serial.print(digit22);
-    // Serial.print(digit23);    
-    // Serial.println(setTimerMode);    
+    Serial1.println(); 
 }
 
 void getData(){
@@ -363,20 +345,20 @@ void getData(){
       x = 0;
       if(!error){
        chamberTemp0 = in["sh"][0];
-       skinTemp1 =    in["sh"][1];
-       skinTemp2 =    in["sh"][2];
-       humidityMid =  in["sh"][3];
-       heaterPwm =    in["pw"][0];
-       Datatimer1 = in["tm"][0];
-       Datatimer2 = in["tm"][1];
-       error0 = in["er"][0];
-       error1 = in["er"][1];
-       error2 = in["er"][2];
-       error3 = in["er"][3];
-       error4 = in["er"][4];
-       error5 = in["er"][5];
+       skinTemp1    = in["sh"][1];
+       skinTemp2    = in["sh"][2];
+       humidityMid  = in["sh"][3];
+       heaterPwm    = in["pw"][0];
+       Datatimer1   = in["tm"][0];
+       Datatimer2   = in["tm"][1];
+       error0       = in["er"][0];
+       error1       = in["er"][1];
+       error2       = in["er"][2];
+       error3       = in["er"][3];
+       error4       = in["er"][4];
+       error5       = in["er"][5];
        return;
-      }   
+      }    
     }
   }
 }
@@ -539,7 +521,8 @@ void set_btn(){
         }
         /*Send data set airway to incubator*/
         if(setAirway == 2){ 
-           sendTemp = displaysetTemp;
+          convert = (displaysetTemp*10); 
+           sendTemp = (float(convert)/10);
            setAirway = 2;
            skinMode = 2;
            segmentBlank = 2;
@@ -577,7 +560,8 @@ void set_btn(){
       }
       /*Send data set skin to incubator*/
       if(setSkinMode == 2){
-        sendTemp = displaysetSkin - 0.7;
+        convert = ((displaysetSkin - 0.7)*10); 
+        sendTemp = (float(convert)/10);
         setSkinMode = 2;
         setAirway = 0;
         skinMode = 1;
@@ -642,15 +626,6 @@ void set_btn(){
           p = millis();
           // setAlarmMode = 0;
         }
-    // }
-      //  if(setAlarmMode == 2){       
-      //     setAlarmMode = 0;
-
-      //     if(setAlarmMode > 1){
-      //        setAlarmMode = 0;
-      //     }
-      //  } 
-  //  }
 
     /* sunyi button */
     lastPower12 = currentPower12;
