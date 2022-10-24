@@ -1,6 +1,6 @@
 #include <ArduinoJson.h>
-#include "src/library/SimpleTimer/SimpleTimer.h"
 #include "LedControl.h"
+#include "src/SimpleTimer/SimpleTimer.h"
 
 /*define*/                    /*PCB allisha*/ //    pcb dasar
 #define leftAir            47   //47              //22
@@ -31,11 +31,6 @@
 
 
 /*seven segment display define*/
-//Pin 34 = DIN                         //7
-//PIN 35 = ClK                         //6
-//Pin 33 = CS/LOAD                     //5
-//LedControl (DIN, CLK, CS/Load, Number of IC used)
-LedControl lc = LedControl(34, 35, 33, 3); 
 int graphpin[] = {37, 38, 39, 40, 41, 42, 43, 44, 52, 51};                    
 //pcb lama
 //36, 37, 38, 39, 40, 41, 42, 43, 44, 45
@@ -72,27 +67,27 @@ uint8_t sendAlarm = 0;
 uint8_t silent = 0;
 
 //data Mode sended to incubator
-int skinMode = 0;
-int highTemp = 0;
-int humiMode = 0;
-int lockMode = 0;
-int sunyiValue = 0;
-int last_sunyi_value = 0;
+uint8_t skinMode = 0;
+uint8_t highTemp = 0;
+uint8_t humiMode = 0;
+uint8_t lockMode = 0;
+uint8_t sunyiValue = 0;
+uint8_t last_sunyi_value = 0;
 uint8_t timeMode = 0;
 
 //data error received from incubator
-int error0 = 0;
-int error1 = 0;
-int error2 = 0;
-int error3 = 0;
-int error4 = 0;
-int error5 = 0;
-int error6 = 0;
-int error7 = 0;
-int error8 = 0;
+bool error0 = 0;
+bool error1 = 0;
+bool error2 = 0;
+bool error3 = 0;
+bool error4 = 0;
+bool error5 = 0;
+bool error6 = 0;
+bool error7 = 0;
+bool error8 = 0;
 
-
-int valuePower = 1;
+//valuePower
+uint8_t valuePower = 1;
 static char inputData[256];
 int x;
 int a = 0;
@@ -110,7 +105,6 @@ uint8_t l = 0;
 uint8_t o;
 unsigned long p;
 uint8_t q = 0;
-int debugging = 1;
 uint8_t segmentBlank = 0;
 
 uint8_t sirenAlarm =0;
@@ -119,7 +113,6 @@ uint8_t alarmValue2 = 0;
 unsigned long dpTimer;
 uint8_t loopTimer;
 uint16_t convert;
-
 
 //data button
 uint8_t lastPower0;   //tombol kiri airtemp      
@@ -153,15 +146,15 @@ uint8_t currentPower12;  //Sunyi Btn
 uint8_t currentPower13;  //set timer
 uint8_t onOff;
 
-uint8_t lastError0          = 0;
-uint8_t lastError1          = 0;
-uint8_t lastError2          = 0;
-uint8_t lastError3          = 0;
-uint8_t lastError4          = 0;
-uint8_t lastError5          = 0;
-uint8_t lastError6          = 0;
+uint8_t lastError0      = 0;
+uint8_t lastError1      = 0;
+uint8_t lastError2      = 0;
+uint8_t lastError3      = 0;
+uint8_t lastError4      = 0;
+uint8_t lastError5      = 0;
+uint8_t lastError6      = 0;
 
-uint8_t setHigh = 0;
+uint8_t setHigh   = 0;
 uint8_t setAirway = 0;
 uint8_t setSkinMode = 0;
 uint8_t setHumiMode = 0;
@@ -170,8 +163,6 @@ uint8_t setAlarmMode = 0;
 uint8_t setTimerMode = 0;
 uint8_t holdTimer1;
 uint8_t holdTimer2;
-unsigned long holdtime;
-uint8_t holdData = 0;
 
 //initialize digit
 uint8_t digit1 = 0;
@@ -203,27 +194,18 @@ uint8_t heaterPwm = 0;
 uint8_t heatedPower = 0;
 uint8_t alarm[6] = {0,0,0,0,0,0};
 uint8_t sAlarm[6] = {1,1,1,1,1,1};
-// unsigned int reload = 0xF424;
 
+//Pin 34 = DIN                         //7
+//PIN 35 = ClK                         //6
+//Pin 33 = CS/LOAD                     //5
+//LedControl (DIN, CLK, CS/Load, Number of IC used)
+LedControl lc = LedControl(34, 35, 33, 3); 
 SimpleTimer timer0;
 SimpleTimer timer1;
 SimpleTimer timer3;
+SimpleTimer timer4;
 
-
-void setup() {
-
-  Serial1.begin(9600);
-  // Serial.begin(9600);
-  timer0.setInterval(1000, generate_json);
-  lc.setIntensity(0, 2);
-  lc.setIntensity(1, 2);
-  lc.setIntensity(2, 2);
-  lc.setIntensity(3, 2);
-  lc.clearDisplay(0);
-  lc.clearDisplay(1);
-  lc.clearDisplay(2);
-  lc.clearDisplay(3);
-  
+void pin_setup(){
   /*button Pin*/
   pinMode(leftAir, INPUT);
   pinMode(rightAir, INPUT);
@@ -238,7 +220,7 @@ void setup() {
   pinMode(setTimer, INPUT);
   pinMode(set_alarm, INPUT);
   pinMode(sunyiBtn, INPUT);
-  
+
   /*LED Pin*/
   pinMode(led_airway, OUTPUT);
   pinMode(led_skin, OUTPUT);
@@ -250,35 +232,175 @@ void setup() {
   pinMode(err2, OUTPUT);
   pinMode(err3, OUTPUT);
   // pinMode(err4, OUTPUT);
+}
 
-  digitalWrite(led_airway, HIGH);
-  digitalWrite(led_skin, HIGH);
-  digitalWrite(led_humi, HIGH);
-  digitalWrite(led_bypass, HIGH);
-  digitalWrite(led_lock, HIGH);
-
+void display_setup(){
+  /*max 7219 display setup*/
+  lc.setIntensity(0, 2);
+  lc.setIntensity(1, 2);
+  lc.setIntensity(2, 2);
+  lc.setIntensity(3, 2);
+  lc.clearDisplay(0);
+  lc.clearDisplay(1);
+  lc.clearDisplay(2);
+  lc.clearDisplay(3);
   /*led graph pin setup*/
   for(int thisled = 0; thisled < 10; thisled++){
     pinMode(graphpin[thisled], OUTPUT);
   }
 }
 
-void loop() {
-   run_program();
+void simple_timer_setup(){
+  timer0.setInterval(1000, generate_json);
+  timer4.setInterval(5000, plotter);
 }
 
-void run_program(){ 
-    getData();
-    timer0.run();//generate_json();
-    // timer3.run();
-    btn_menu();
-    set_btn();
-    display_digit();
-    read_error();
+void segment_setup(){
+  displayTemp = chamberTemp0;
+  displaySkin = skinTemp1;
+  displaySkin2 = skinTemp2;
+  displayHumi = humidityMid;
+  displaysetTimer1 = Datatimer1;
+  displaysetTimer2 = Datatimer2;
+
+  /*airway*/
+  digit1 = displaysetTemp / 10;
+  digit2 = displaysetTemp - (digit1 * 10);
+  digit3 = (displaysetTemp * 10 - (digit1 * 100)) - (digit2 * 10);
+  digit4 = displayTemp / 10;
+  digit5 = displayTemp - (digit4 * 10);
+  digit6 = ((displayTemp * 10) - (digit4 * 100)) - (digit5 * 10);
+  
+  /*skin*/
+  digit7 = displaysetSkin / 10;
+  digit8 = displaysetSkin - (digit7 * 10);
+  digit9 = (displaysetSkin * 10 - (digit7 * 100)) - (digit8 * 10);
+  digit10 = displaySkin / 10;
+  digit11 = displaySkin - (digit10 * 10);
+  digit12 = ((displaySkin * 10) - (digit10 * 100)) - (digit11 * 10);
+  digit13 = displaySkin2 / 10;
+  digit14 = displaySkin2 - (digit13 * 10);
+  digit15 = (displaySkin2 * 10 - (digit13 * 100)) - (digit14 * 10);
+  
+  /*humidity*/
+  digit16 = displayHumi / 10;
+  digit17 = displayHumi - (digit16 * 10);
+  digit18 = displaysetHumi / 10;
+  digit19 = displaysetHumi - (digit18 * 10);
+
+  /*Timer*/
+  if(timeMode == 0){
+    digit20 = 0;
+    digit21 = 0;
+    digit22 = 0;                          /*PCB ALLISHA*/
+    digit23 = 0;    
+    lc.setChar(0, 2, '-', false);        //(0,2) 
+    lc.setChar(0, 6, '-', false);        //(0,6) 
+    lc.setChar(0, 4, '-', false);        //(0,4)
+    lc.setChar(0, 0, '-', false);        //(0,0)
+  }
+  if(timeMode == 1){
+    lc.setDigit(0, 2, digit20, false);   //(0,2)
+    lc.setDigit(0, 6, digit21, false);   //(0,6)
+    lc.setDigit(0, 4, digit22, true);   //(0,4) 
+    lc.setDigit(0, 0, digit23, true);   //(0,0)
+    digit20 = displaysetTimer1/10;
+    digit22 = displaysetTimer2/10;
+      if(displaysetTimer2 < 10){
+        digit23 = displaysetTimer2;
+      }  
+      if(displaysetTimer2 >= 10){
+        digit23 = (displaysetTimer2)-((displaysetTimer2/10)*(10));  
+      }
+      if(displaysetTimer1 < 10){
+        digit21 = displaysetTimer1;
+      }
+      if(displaysetTimer1 >= 10){
+        digit21 = (displaysetTimer1)-((displaysetTimer1/10)*(10));
+      }
+  }
+
+  if(timeMode == 3){
+    displaysetTimer1 = holdTimer1;
+    displaysetTimer2 = holdTimer2;
+    if(millis() - dpTimer > 500 && loopTimer == 0){
+    lc.setDigit(0, 2, digit20, false);   //(0,2)
+    lc.setDigit(0, 6, digit21, false);   //(0,6)
+    lc.setDigit(0, 4, digit22, true);   //(0,4) 
+    lc.setDigit(0, 0, digit23, true);   //(0,0)
+      dpTimer = millis();
+      loopTimer = 1;      
+    }
+    if(millis() - dpTimer > 500 && loopTimer == 1){
+    lc.setChar(0, 2, 'blank', false);   //(0,2)
+    lc.setChar(0, 6, 'blank', false);   //(0,6)
+    lc.setChar(0, 4, 'blank', true);   //(0,4) 
+    lc.setChar(0, 0, 'blank', true);   //(0,0)
+      dpTimer = millis();
+      loopTimer = 0;  
+    }
+  }
+}
+
+
+/* Send and Receive Data Session*///// 
+void generate_json(){
+    StaticJsonDocument<512> out1;
+    JsonObject DataButton = out1.createNestedObject("dt1");
+    DataButton["sn"][0]   = sendTemp;
+    // DataButton["sn"][1] = sendSkin;
+    DataButton["sn"][1]   = sendHumi;
+    DataButton["mod"][0] = skinMode;
+    DataButton["mod"][1] = humiMode;
+    DataButton["mod"][2] = highTemp;
+    DataButton["mod"][3] = alarmValue2;
+    DataButton["mod"][4] = sirenAlarm;
+    DataButton["mod"][5] = timeMode;
+    DataButton["mod"][6] = sendAlarm;
+    serializeJson(out1, Serial1);
+    Serial1.println();
+    // serializeJson(out1, Serial);
+    // Serial.println();       
+}
+
+void get_data_json(){
+  while(Serial1.available()>0){
+    lc.shutdown(0, false);
+    lc.shutdown(1, false);
+    lc.shutdown(2, false);
+    inputData[x] = Serial1.read();
+    x++;
+    if(inputData[x-1] == '\n'){
+      Serial.println(inputData);
+      StaticJsonDocument<512>in;
+      DeserializationError error = deserializeJson(in, inputData);
+      x = 0;
+      if(!error){
+       chamberTemp0 = in["sh"][0];
+       skinTemp1    = in["sh"][1];
+       skinTemp2    = in["sh"][2];
+       humidityMid  = in["sh"][3];
+       heaterPwm    = in["pw"][0];
+       Datatimer1   = in["tm"][0];
+       Datatimer2   = in["tm"][1];
+       error0       = in["er"][0];
+       error1       = in["er"][1];
+       error2       = in["er"][2];
+       error3       = in["er"][3];
+       error4       = in["er"][4];
+       error5       = in["er"][5];
+       return;
+      }   
+    }
+  }
+}
+/* END Send and Receive Data Session*///// 
+
+void power_function(){
   if(digitalRead(20) == LOW){
     onOff++;
     if(onOff >= 5){
-    digit_kosong();
+    segment_blank();
     error0 = 0;
     error1 = 0;
     error2 = 0;
@@ -310,71 +432,18 @@ void run_program(){
   if(digitalRead(20) == HIGH){
     onOff = 0;
   }
-  
 }
-
-/* Send and Receive Data Session*///// 
-void generate_json(){
-    StaticJsonDocument<512> out1;
-    JsonObject DataButton = out1.createNestedObject("dt1");
-    DataButton["sn"][0]   = sendTemp;
-    // DataButton["sn"][1] = sendSkin;
-    DataButton["sn"][1]   = sendHumi;
-    DataButton["mod"][0] = skinMode;
-    DataButton["mod"][1] = humiMode;
-    DataButton["mod"][2] = highTemp;
-    DataButton["mod"][3] = alarmValue2;
-    DataButton["mod"][4] = sirenAlarm;
-    DataButton["mod"][5] = timeMode;
-    DataButton["mod"][6] = sendAlarm;
-    serializeJson(out1, Serial1);
-    Serial1.println(); 
-}
-
-void getData(){
-  while(Serial1.available()>0){
-    lc.shutdown(0, false);
-    lc.shutdown(1, false);
-    lc.shutdown(2, false);
-    inputData[x] = Serial1.read();
-    x++;
-    if(inputData[x-1] == '\n'){
-      Serial.println(inputData);
-      StaticJsonDocument<512>in;
-      DeserializationError error = deserializeJson(in, inputData);
-      x = 0;
-      if(!error){
-       chamberTemp0 = in["sh"][0];
-       skinTemp1    = in["sh"][1];
-       skinTemp2    = in["sh"][2];
-       humidityMid  = in["sh"][3];
-       heaterPwm    = in["pw"][0];
-       Datatimer1   = in["tm"][0];
-       Datatimer2   = in["tm"][1];
-       error0       = in["er"][0];
-       error1       = in["er"][1];
-       error2       = in["er"][2];
-       error3       = in["er"][3];
-       error4       = in["er"][4];
-       error5       = in["er"][5];
-       return;
-      }    
-    }
-  }
-}
-/* END Send and Receive Data Session*///// 
-
 
 /*increment-Decrement function*/
-void btn_menu(){
+void inc_dec_btn(){
   /*kontrol set Humi*/
   if(setHumiMode == 1 && lockMode == 0){
      lastPower4 = currentPower4;
      currentPower4 = digitalRead(rightHumi);
      if(lastPower4 == HIGH && currentPower4 == LOW){
         displaysetHumi = displaysetHumi + 1;
-        if(displaysetHumi > 95){
-           displaysetHumi = 95;
+        if(displaysetHumi > 90){
+           displaysetHumi = 90;
         }
      }
      lastPower5 = currentPower5;
@@ -462,7 +531,7 @@ void btn_menu(){
 
 
 /*Mode Set Function*/
-void set_btn(){
+void menu_btn(){
 /*Set Lock Mode*/
   lastPower10 = currentPower10;
   currentPower10 = digitalRead(lock_btn);
@@ -498,8 +567,8 @@ void set_btn(){
            highTemp = 0;
            setHigh = 0;
            digitalWrite(led_bypass, HIGH);
-           displaysetTemp = 27;
-           displaysetSkin = 34;
+          //  displaysetTemp = 27;
+          //  displaysetSkin = 34;
         }
      }
   } 
@@ -520,7 +589,7 @@ void set_btn(){
           }
         }
         /*Send data set airway to incubator*/
-        if(setAirway == 2){ 
+        if(setAirway == 2){
           convert = (displaysetTemp*10); 
            sendTemp = (float(convert)/10);
            setAirway = 2;
@@ -604,9 +673,7 @@ void set_btn(){
           digitalWrite(led_humi, HIGH);
        }
      }
-   }
-
-
+  }
 
  /*Set Alarm Mode*/
     lastPower11 = currentPower11;
@@ -619,7 +686,7 @@ void set_btn(){
           q = 1;
           p = millis();
         }
-    }
+      }
         if(millis() - p > 10350 && q == 1){
           sendAlarm = 0;
           q = 0;
@@ -708,8 +775,7 @@ void set_btn(){
 }
  
   
-void read_error(){
-  /*Triggering lamp*/
+void read_error_function(){
   /*probe missing*/
   if(error0 == 1 ){
     digitalWrite(err0, LOW);
@@ -819,13 +885,10 @@ void read_error(){
       sirenAlarm = 0;    
     }
   }
-
-
-  /*fan Failure*/
 }
 
-void display_digit(){
-  nilaidigit();
+void display_function(){
+  segment_setup();
    /*Display Airway Temp*/            /*PCB Allisha*/
   lc.setDigit(1, 2, digit4, false);     //(1,2)
   lc.setDigit(1, 1, digit5, true);      //(1,1)
@@ -895,11 +958,11 @@ void display_digit(){
   }
 }
 
-void digit_kosong(){
+void segment_blank(){
   lc.shutdown(0, true);
   lc.shutdown(1, true);
   lc.shutdown(2, true);
-  nilaidigit();
+  segment_setup();
 
     /*Display Airway Temp*/
   lc.setChar(2, 0, 'blank', false);
@@ -932,89 +995,43 @@ void digit_kosong(){
   lc.setChar(0, 0, 'blank', false);  
 }
 
-void nilaidigit() {
-  displayTemp = chamberTemp0;
-  displaySkin = skinTemp1;
-  displaySkin2 = skinTemp2;
-  displayHumi = humidityMid;
-  displaysetTimer1 = Datatimer1;
-  displaysetTimer2 = Datatimer2;
 
-  /*airway*/
-  digit1 = displaysetTemp / 10;
-  digit2 = displaysetTemp - (digit1 * 10);
-  digit3 = (displaysetTemp * 10 - (digit1 * 100)) - (digit2 * 10);
-  digit4 = displayTemp / 10;
-  digit5 = displayTemp - (digit4 * 10);
-  digit6 = ((displayTemp * 10) - (digit4 * 100)) - (digit5 * 10);
-  
-  /*skin*/
-  digit7 = displaysetSkin / 10;
-  digit8 = displaysetSkin - (digit7 * 10);
-  digit9 = (displaysetSkin * 10 - (digit7 * 100)) - (digit8 * 10);
-  digit10 = displaySkin / 10;
-  digit11 = displaySkin - (digit10 * 10);
-  digit12 = ((displaySkin * 10) - (digit10 * 100)) - (digit11 * 10);
-  digit13 = displaySkin2 / 10;
-  digit14 = displaySkin2 - (digit13 * 10);
-  digit15 = (displaySkin2 * 10 - (digit13 * 100)) - (digit14 * 10);
-  
-  /*humidity*/
-  digit16 = displayHumi / 10;
-  digit17 = displayHumi - (digit16 * 10);
-  digit18 = displaysetHumi / 10;
-  digit19 = displaysetHumi - (digit18 * 10);
 
-  /*Timer*/
-  if(timeMode == 0){
-    digit20 = 0;
-    digit21 = 0;
-    digit22 = 0;                          /*PCB ALLISHA*/
-    digit23 = 0;    
-    lc.setChar(0, 2, '-', false);        //(0,2) 
-    lc.setChar(0, 6, '-', false);        //(0,6) 
-    lc.setChar(0, 4, '-', true);        //(0,4)
-    lc.setChar(0, 0, '-', true);        //(0,0)
-  }
-  if(timeMode == 1){
-    lc.setDigit(0, 2, digit20, false);   //(0,2)
-    lc.setDigit(0, 6, digit21, false);   //(0,6)
-    lc.setDigit(0, 4, digit22, true);   //(0,4) 
-    lc.setDigit(0, 0, digit23, true);   //(0,0)
-    digit20 = displaysetTimer1/10;
-    digit22 = displaysetTimer2/10;
-      if(displaysetTimer2 < 10){
-        digit23 = displaysetTimer2;
-      }  
-      if(displaysetTimer2 >= 10){
-        digit23 = (displaysetTimer2)-((displaysetTimer2/10)*(10));  
-      }
-      if(displaysetTimer1 < 10){
-        digit21 = displaysetTimer1;
-      }
-      if(displaysetTimer1 >= 10){
-        digit21 = (displaysetTimer1)-((displaysetTimer1/10)*(10));
-      }
-  }
+void plotter(){
+  Serial.print("DATA, TIME, TIMER,");
+  Serial.print(skinTemp1);
+  Serial.print(",");
+  Serial.print(chamberTemp0);
+  Serial.print(",");
+  Serial.print(humidityMid);
+  Serial.print(",");
+  Serial.print(sendHumi);
+  Serial.print(",");          
+  Serial.print(sendTemp);
+  Serial.print(",");
+  Serial.print(heaterPwm);
+  Serial.println();
+}
 
-  if(timeMode == 3){
-    displaysetTimer1 = holdTimer1;
-    displaysetTimer2 = holdTimer2;
-    if(millis() - dpTimer > 500 && loopTimer == 0){
-    lc.setDigit(0, 2, digit20, false);   //(0,2)
-    lc.setDigit(0, 6, digit21, false);   //(0,6)
-    lc.setDigit(0, 4, digit22, true);   //(0,4) 
-    lc.setDigit(0, 0, digit23, true);   //(0,0)
-      dpTimer = millis();
-      loopTimer = 1;      
-    }
-    if(millis() - dpTimer > 500 && loopTimer == 1){
-    lc.setChar(0, 2, 'blank', false);   //(0,2)
-    lc.setChar(0, 6, 'blank', false);   //(0,6)
-    lc.setChar(0, 4, 'blank', true);   //(0,4) 
-    lc.setChar(0, 0, 'blank', true);   //(0,0)
-      dpTimer = millis();
-      loopTimer = 0;  
-    }
-  }
+void setup() {
+  Serial1.begin(9600);
+  Serial.begin(9600);
+  pin_setup();  
+  display_setup();
+  simple_timer_setup();
+  digitalWrite(led_airway, HIGH);
+  digitalWrite(led_skin, HIGH);
+  digitalWrite(led_humi, HIGH);
+  digitalWrite(led_bypass, HIGH);
+  digitalWrite(led_lock, HIGH);
+}
+
+void loop(){ 
+  timer0.run();//generate_json();
+  get_data_json();
+  menu_btn();
+  inc_dec_btn();
+  display_function();
+  power_function();
+  read_error_function();
 }
