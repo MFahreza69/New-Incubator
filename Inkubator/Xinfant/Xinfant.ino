@@ -39,14 +39,9 @@ float babySkinTemp1         = 0;
 float chamberTemp0          = 0;
 float humidityMid           = 0;
 uint8_t outWarmer;
-uint8_t statHigh            = 0;
-uint8_t callBtn             = 1;
 unsigned long lastTime0     = 0;
 unsigned long lastTime1     = 0;
 unsigned long lastTime2     = 0;
-/* power Button */
-int numberA                 = 0;
-int numberB                 = 0;
 /* lockButton */
 int lock                    = 1;
 unsigned long last_time     = 0;
@@ -54,7 +49,8 @@ unsigned long last_time1    = 0;
 unsigned long tcal          = 0;
 
 /*variable data*/
-int a = 0;
+/*variable data*/
+int a                       = 0;
 unsigned long b;
 uint8_t G                   = 0;
 uint8_t B                   = 0;
@@ -65,13 +61,10 @@ uint8_t valvePwm            = 0;
 uint8_t skinMode            = 0; //skinmode =1 = BabyMode || skinmode =2 = Airmode
 uint8_t menuMode            = 0;
 uint8_t humiMode            = 0;
-uint8_t pos                 = 0;
-uint8_t last_pos            = 0;
 uint8_t highTemp            = 0;
 uint8_t alarmValue;
 uint8_t sunyiValue          = 0;
 uint8_t silent              = 0;
-uint8_t debugging           = 1;
 uint8_t error0              = 0; 
 uint8_t error1              = 0; 
 uint8_t error2              = 0; 
@@ -80,39 +73,25 @@ uint8_t error4              = 0;
 uint8_t error5              = 0; 
 uint8_t error6              = 0; 
 // uint8_t last_sunyi_value    = 0;
-uint8_t callStatt           = 0;
-uint8_t setFiO2             = 20;
 float displaySetTemp        = 27;
 float displayBabyTemp0      = 0;
 float displayBabyTemp1      = 0;
-uint8_t displayOxygen       = 0;
 float lastDisplay           = 0;
 float lastHumidity          = 0;
-float lastFiO2              = 0;
-float setTemp               = 27;
-float setTemp1              = 27;
-uint8_t setHumidity         = 60;
+float setTemp               = 0;
+float setTemp1              = 0;
+uint8_t setHumidity         = 0;
 //default A= -0.1854, B= 58.551
 float setValue0A            = 0.022/*0.3027*/;
 float setValue0B            = 21.023/*-214.88*/;
 float setValue1A            = 0.022/*0.1154*/;
 float setValue1B            = 21.023/*-32.134*/;
-float errorData             = 0;
 float errorHumidity         = 0;
 unsigned long lastTime3     = 0;
 uint8_t loopAlarm           = 0;
-uint8_t lastError0          = 0;
-uint8_t lastError1          = 0;
-uint8_t lastError2          = 0;
-uint8_t lastError3          = 0;
-uint8_t lastError4          = 0;
-uint8_t lastError5          = 0;
-uint8_t lastError6          = 0;
 uint8_t suhu                = 0;
 uint8_t sensor              = 0;
-// uint8_t O2                  = 0;
 uint8_t heatedPower         = 0;
-//error variable
 uint8_t powerIn             = 0;
 uint8_t waterIn             = 0;       
 
@@ -135,8 +114,6 @@ static unsigned char x;
 static unsigned char x2;
 int sampleData[20];
 int sampleData1[20];
-int readData[21];
-char in = 1;
 int g = 0;
 float h;
 int i = 0;
@@ -185,11 +162,11 @@ void setup(){
     timer4.setInterval(800, read_error);
     timer5.setInterval(800, read_skin_temperature);
     analogWrite(warmerPin, 0);
-    myPID.SetOutputLimits(0,235);
+    myPID.SetOutputLimits(40,215);
     myPID.SetMode(AUTOMATIC);
     myPID2.SetOutputLimits(90, 100);
     myPID2.SetMode(AUTOMATIC);
-    myPID3.SetOutputLimits(0, 205);
+    myPID3.SetOutputLimits(64, 200);
     myPID3.SetMode(AUTOMATIC);
 }
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -206,16 +183,10 @@ void run_program(){
     timer5.run();
     digitalWrite(pinLamp, HIGH);
     digitalWrite(26, LOW); 
-    // read_skin_temperature();
     read_temperature();
     run_warmer();
-    // run_control();
     alarm();
-    // tuning();
-    // plotter();
     pewaktu();
-    // Serial.println(chamberTemp0);
-    // doremi();
 }
 
 /*Communication Data*/////////////////////////////////////////////////////////////////////////////////////////
@@ -229,15 +200,15 @@ void communication_serial(){
             StaticJsonDocument<512>in;
             DeserializationError error = deserializeJson(in, userInput);
             if(!error){
-                setTemp = in["data1"]["sn"][0];
-                setHumidity = in["data1"]["sn"][1];
-                skinMode = in["data1"]["mode"][0];
-                humiMode = in["data1"]["mode"][1];
-                highTemp = in["data1"]["mode"][2];
-                alarmValue = in["data1"]["mode"][3];
-                sunyiValue = in["data1"]["mode"][4];
-                timeMode = in["data1"]["mode"][5];
-                alarmRst = in["data1"]["mode"][6];
+                setTemp     = in["dt1"]["sn"][0];
+                setHumidity = in["dt1"]["sn"][1];
+                skinMode    = in["dt1"]["mod"][0];
+                humiMode = in["dt1"]["mod"][1];
+                highTemp = in["dt1"]["mod"][2];
+                alarmValue = in["dt1"]["mod"][3];
+                sunyiValue = in["dt1"]["mod"][4];
+                timeMode = in["dt1"]["mod"][5];
+                alarmRst = in["dt1"]["mod"][6];
             }
             x2 = 0;
         }
@@ -252,7 +223,7 @@ void generate_json(){
         outDbg["sh"][1] = babySkinTemp0;
         outDbg["sh"][2] = babySkinTemp1;
         outDbg["sh"][3] = humidityMid;
-        // outDbg["pow"][1] = heaterPwm;
+        // outDbg["pw"][1] = round(outputFan);
         outDbg["pw"][0] = round(outputHeater);
         outDbg["tm"][0] = now.hour();
         outDbg["tm"][1] = now.minute();
@@ -360,29 +331,9 @@ void run_warmer(){
                 analogWrite(warmerPin, 0);
                 warmerPwm = 0;
             }  
-            if(errorHumidity < 950 && errorHumidity >= 307){
+            if(errorHumidity < 950 && errorHumidity >= -0.1){
                 analogWrite(warmerPin, 255); //255
                 warmerPwm = 255;
-            }
-            if(errorHumidity < 307 && errorHumidity>= 105){
-                analogWrite(warmerPin, 215); //215
-                warmerPwm = 215;
-            }
-            if(errorHumidity < 105 && errorHumidity >= 70 ){
-                analogWrite(warmerPin, 200); //200
-                warmerPwm = 200;
-            }
-            if(errorHumidity < 70 && errorHumidity >= 20){
-                analogWrite(warmerPin, 190); //190
-                warmerPwm = 190;
-            }
-            if(errorHumidity < 20 && errorHumidity >= 5){
-                analogWrite(warmerPin, 180); //180
-                warmerPwm = 180;
-            }
-            if(errorHumidity < 5 && errorHumidity >= -0.5){
-                analogWrite(warmerPin, 180); //180
-                warmerPwm = 180; //100
             }
         }
    }
@@ -408,7 +359,7 @@ void read_error(){
     errorSkin1 = (setTemp * 10) - (babySkinTemp1 * 10);
 if(alarmRst == 0){    
     /*probe sensor missing*///////////////////////
-    if(babySkinTemp0 == 0 || chamberTemp0 == 0){
+    if(babySkinTemp0 == 0 || babySkinTemp1 == 0 || chamberTemp0 == 0){
         error0 = 1;
     }
     if(babySkinTemp0 != 0 && chamberTemp0 != 0){
@@ -417,11 +368,12 @@ if(alarmRst == 0){
     /*end probe sensor missing*/////////////////////
 
 
-    /*Temp Deviation Alarm*////////////////////////
+    /*Temp Deviation and High Temp Alarm*////////////////////////
     if(skinMode == 1){
         steadytime1 = 0;
         error2 = 0;
-        if(errorSkin0 < 1 && errorSkin0 >= -1 || errorSkin1 < 1 && errorSkin1 >=-1){
+        if(errorSkin0 < 1 && errorSkin0 >= -1){
+            //|| errorSkin1 < 1 && errorSkin1 >=-1
             steadytime0++;
             error1 = 0;
             if(steadytime0 >= 60){
@@ -429,17 +381,20 @@ if(alarmRst == 0){
             }
         }
         if(steadytime0 == 60){
-            if(babySkinTemp0 >= setTemp+1 || babySkinTemp0 <= setTemp-1 || babySkinTemp1 >= setTemp +1 || babySkinTemp1 <= setTemp-1){
+            if(babySkinTemp0 >= setTemp+1 || babySkinTemp0 <= setTemp-1){
+            //|| babySkinTemp1 >= setTemp +1 || babySkinTemp1 <= setTemp-1
                 error1 = 1;
             }
             else{
                 error1 = 0;
             }
         }
-        if(highTemp == 0 && babySkinTemp0 >= 38 || babySkinTemp1 >= 38){
+        if(highTemp == 0 && babySkinTemp0 >= 38){
+          // || babySkinTemp1 >= 38  
           error3 = 1;
         } 
-        if(highTemp == 1 && babySkinTemp0 >= 38.5 || babySkinTemp1 >= 38.5){
+        if(highTemp == 1 && babySkinTemp0 >= 38.5){
+          //|| babySkinTemp1 >= 38.5  
           error3 = 1;
         }         
         else{
@@ -480,7 +435,7 @@ if(alarmRst == 0){
         steadytime1 = 0;
     } 
        
-   /*End Temp Deviation Alarm*////////////////////////
+   /*End Temp Deviation and High Temp Alarm*////////////////////////
 
 
 //    /*High Temperature Alarm*//////////////////////////
@@ -516,8 +471,6 @@ if(alarmRst == 0){
     // }
 }
 if(alarmRst == 1){
-    // alarmRst = 1;
-    // powerIn = 0;
     error0 = 0;
     error1 = 0;
     error2 = 0;
@@ -631,101 +584,9 @@ if(highTemp == 1){
     set_pwm(outputFan, outputHeater);
     outputHeater = 0;
     outputFan = 100;
-    }    
+    }
+  }
 }  
 
-// if(millis()>serialTime)
-//   {
-//     SerialReceive();
-//     SerialSend();
-//     serialTime+=500;
-//   }   
-}
 
 
-// union {                // This Data structure lets
-//   byte asBytes[24];    // us take the byte array
-//   float asFloat[6];    // sent from processing and
-// }                      // easily convert it to a
-// foo;  
-
-// void SerialReceive()
-// {
-
-//   // read the bytes sent from Processing
-//   int index=0;
-//   byte Auto_Man = -1;
-//   byte Direct_Reverse = -1;
-//   while(Serial.available()&&index<26)
-//   {
-//     if(index==0) Auto_Man = Serial.read();
-//     else if(index==1) Direct_Reverse = Serial.read();
-//     else foo.asBytes[index-2] = Serial.read();
-//     index++;
-//   } 
-  
-//   // if the information we got was in the correct format, 
-//   // read it into the system
-//   if(index==26  && (Auto_Man==0 || Auto_Man==1)&& (Direct_Reverse==0 || Direct_Reverse==1))
-//   {
-//     setPoint1=double(foo.asFloat[0]);
-//     //Input=double(foo.asFloat[1]);       // * the user has the ability to send the 
-//                                           //   value of "Input"  in most cases (as 
-//                                           //   in this one) this is not needed.
-//     if(Auto_Man==0)                       // * only change the output if we are in 
-//     {                                     //   manual mode.  otherwise we'll get an
-//       outputHeater=double(foo.asFloat[2]);      //   output blip, then the controller will 
-//     }                                     //   overwrite.
-    
-//     double p, i, d;                       // * read in and set the controller tunings
-//     p = double(foo.asFloat[3]);           //
-//     i = double(foo.asFloat[4]);           //
-//     d = double(foo.asFloat[5]);           //
-//     myPID.SetTunings(p, i, d);            //
-    
-//     if(Auto_Man==0) myPID.SetMode(MANUAL);// * set the controller mode
-//     else myPID.SetMode(AUTOMATIC);             //
-    
-//     if(Direct_Reverse==0) myPID.SetControllerDirection(DIRECT);// * set the controller Direction
-//     else myPID.SetControllerDirection(REVERSE);          //
-//   }
-//   Serial.flush();                         // * clear any random data from the serial buffer
-// }
-
-// unlike our tiny microprocessor, the processing ap
-// has no problem converting strings into floats, so
-// we can just send strings.  much easier than getting
-// floats from processing to here no?
-// void SerialSend()
-// {
-//   Serial.print("PID ");
-//   Serial.print(setPoint1);   
-//   Serial.print(" ");
-//   Serial.print(input);   
-//   Serial.print(" ");
-//   Serial.print(outputHeater);   
-//   Serial.print(" ");
-//   Serial.print(myPID.GetKp());   
-//   Serial.print(" ");
-//   Serial.print(myPID.GetKi());   
-//   Serial.print(" ");
-//   Serial.print(myPID.GetKd());   
-//   Serial.print(" ");
-//   if(myPID.GetMode()==AUTOMATIC) Serial.print("Automatic");
-//   else Serial.print("Manual");  
-//   Serial.print(" ");
-//   if(myPID.GetDirection()==DIRECT) Serial.println("Direct");
-//   else Serial.println("Reverse");
-// }
-
-// void tuning() {
-// if(skinMode == 2){
-//     set_pwm(100, 40);
-// }
-// if(skinMode == 1){
-//     set_pwm(100, 50);
-// }
-// if(skinMode == 0){
-//     set_pwm(0, 0);
-// }
-// }
