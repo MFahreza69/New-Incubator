@@ -131,7 +131,8 @@ int SHT1x::shiftIn(int _dataPin, int _clockPin, int _numBits)// commands for rea
   for (i=0; i<_numBits; ++i)
   {
      digitalWrite(_clockPin, HIGH);
-     delay(3);  // I don't know why I need this, but without it I don't get my 8 lsb of temp
+     digitalWrite(_clockPin, HIGH);
+     digitalWrite(_clockPin, HIGH);
      ret = ret*2 + digitalRead(_dataPin);
      digitalWrite(_clockPin, LOW);
   }
@@ -177,10 +178,9 @@ void SHT1x::waitForResultSHT(int _dataPin)// wait for the SHTx answer
   int ack;
   pinMode(_dataPin, INPUT);
 
-  for(i= 0; i < 160; ++i)
+  for(i= 0; i < 5000; ++i)
   {
     timer1.run();
-    delay(2);
     ack = digitalRead(_dataPin);
     if (ack == LOW) {
       break;
