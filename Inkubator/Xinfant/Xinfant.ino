@@ -120,6 +120,20 @@ double outputHeater;
 double outputFan;
 uint8_t outWarmer;
 
+/*Read skin Temp with isolation variable*/
+uint8_t halfBit;
+uint8_t fullBit;
+int dataArray[20];
+unsigned long timePulse;
+unsigned long generateData;
+uint8_t highState = 0;
+uint8_t sampleState = 0;
+int dataSensor1 = 0;
+int dataSensor2 = 0;
+uint8_t pulsa = 0;
+uint8_t start = 1;
+
+
 /*Library Define*/
 Xbaby Xinfant;
 RTC_DS3231 rtc;
@@ -162,7 +176,7 @@ void simple_timer_setup(){
     timer0.setInterval(1000, generate_json); 
     timer3.setInterval(1000, PID_control);
     timer4.setInterval(800, read_error);
-    timer5.setInterval(800, read_skin_temperature);
+    timer5.setInterval(1200, read_airway_temperature);
 }
 
 void PID_parameter_setup(){
@@ -247,6 +261,7 @@ void read_airway_temperature(){
 }
 /*end read sensor*/
 
+/*Read Skin temp without isolation*/
 void read_skin_temperature(){
     float read_skin_temperature0 = Xinfant.get_value_baby_skin(setValue0A, setValue0B, skinTemp1);
     float read_skin_temperature1 = Xinfant.get_value_baby_skin(setValue1A, setValue1B, skinTemp2);
@@ -272,7 +287,62 @@ void read_skin_temperature(){
     }
 }
 
-/*Error Session*/
+/*Read Skin Temp using Isolation*/
+void generate_pulse(){ //Pulse Generator and sampling data
+  if(start == 0 && pulsa <= 19){ //20
+    if(millis() - timePulse > 5 && highState == 0){
+      digitalWrite(clkOut, HIGH);     
+      timePulse = millis();
+      highState = 1;
+    }
+    if(millis() - timePulse > 5 && highState == 1){
+      dataArray[pulsa] = digitalRead(dataIn);
+      pulsa++;
+      timePulse = millis();
+      highState = 2;
+    } 
+    if(millis() - timePulse > 10 && highState == 2){
+      digitalWrite(clkOut, LOW);
+      timePulse = millis();
+      highState = 3;
+    }
+    if(millis() - timePulse > 1 && highState == 3){
+      timePulse = millis();
+      highState = 0;
+    }
+  }
+}
+
+void sample_data(){ //Saving skin temp sensor data 
+    if(pulsa > 19){ //20
+      digitalWrite(clkOut, LOW);
+        if(millis() - generateData > 250 && sampleState == 0){
+          for(halfBit = 0; halfBit < 10; halfBit++){
+            bitWrite(dataSensor1, 9- halfBit , dataArray[halfBit]);
+            Serial.print(dataArray[halfBit]);
+          }
+          for(fullBit = 10; fullBit < 20; fullBit++){
+            bitWrite(dataSensor2, 19- fullBit , dataArray[fullBit]);
+            Serial.print(dataArray[fullBit]);
+          }
+            Serial.print("-");
+            Serial.print(dataSensor1);
+            Serial.print("-");
+            Serial.print(dataSensor2);
+            Serial.println("-");
+            start = 1;
+            sampleState = 1;
+            generateData = millis();
+        }
+        if(millis() - generateData > 250 && sampleState == 1){
+            pulsa = 0;
+            start = 0;
+            sampleState = 0;
+            generateData = millis();            
+        }
+    }
+}
+/*End Read skin temp*/
 
 void read_error(){
     errorAir = (setTemp * 10) - (chamberTemp0 * 10);
@@ -572,11 +642,12 @@ void setup(){
 
 void loop(){
     read_data_json();
+    generate_pulse(); //pulse generator for read skin temp with isolation
+    sample_data(); //sampling data per pulse
     timer0.run(); //generate_json
     timer3.run(); // PID Control
     timer4.run(); //read error status
-    timer5.run(); //read_skin_temp 
-    read_airway_temperature();
+    timer5.run(); //read_airway_temp 
     warmer_control();
     timer_control();
     alarm_control();
